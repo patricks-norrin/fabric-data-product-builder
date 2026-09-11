@@ -33,8 +33,13 @@ if [ -n "$ENVIRONMENT_ID" ]; then
   [ "$ENV_CAP" = "$CAP_ID" ] && pass "environment workspace on same capacity" || fail "environment workspace capacity $ENV_CAP != $CAP_ID"
   WHEELS=$(fab_api_q "text.customLibraries.wheelFiles | join(',', @)" "workspaces/$ENVIRONMENT_WORKSPACE_ID/environments/$ENVIRONMENT_ID/libraries")
   case "$WHEELS" in *lakehouse_toolbelt*) pass "environment $ENVIRONMENT_NAME publishes $WHEELS";; *) fail "environment $ENVIRONMENT_NAME: no lakehouse_toolbelt wheel (got '$WHEELS')";; esac
+  VER=$(echo "$WHEELS" | grep -o 'lakehouse_toolbelt-[0-9.]*[0-9]' | head -1 | sed 's/lakehouse_toolbelt-//')
+  python3 -c "import sys; v=tuple(int(x) for x in '$VER'.split('.')); sys.exit(0 if v>=(1,0,7) else 1)" 2>/dev/null && pass "toolbelt wheel $VER >= 1.0.7 (project_configuration support)" || fail "toolbelt wheel '$VER' < 1.0.7: configs with extra source_configuration attributes will fail (SourceConfiguration/filter_string bug)"
+  [ "$ENVIRONMENT_WORKSPACE_ID" = "$WORKSPACE_ID" ] && pass "environment lives in the target workspace" || fail "environment is in another workspace: Spark session acquisition fails for notebooks and Livy (copy it with fab cp)"
 else fail "no environment configured in target_workspace.json"; fi
 
+echo "== Azure CLI token (Livy Spark sessions)"
+if az account get-access-token --resource https://api.fabric.microsoft.com --query expiresOn -o tsv >/dev/null 2>&1; then pass "az token for api.fabric.microsoft.com available"; else warn "no az token: Livy dev loop unavailable until 'az login --tenant <id> --allow-no-subscriptions --use-device-code'"; fi
 echo "== Livy API"
 if [ -n "$SHARED_ID" ]; then
   LIVY=$(fab_api "workspaces/$WORKSPACE_ID/lakehouses/$SHARED_ID/livyapi/versions/2023-12-01/sessions" -q "text.pageSize")
