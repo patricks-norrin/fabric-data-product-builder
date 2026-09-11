@@ -7,6 +7,11 @@ description: Cell-by-cell development loop for Fabric notebooks without VS Code 
 
 All commands: `bash .claude/skills/nor-livy-session/scripts/livy_session.sh <command> ...`. Session state is kept in `.scratch/livy_session.json`.
 
+## Authentication — read before the first session
+- **fab (Fabric CLI) token = control plane only.** A Livy session created with it starts, but the Spark runtime gets **no delegated identity**: `notebookutils.fs.*`, `spark.read/write` to OneLake, `SHOW SCHEMAS`, `credentials.getToken` all fail with `Auth failure … CustomTokenProvider`. Verified 2026-09-11.
+- **Azure CLI user token works.** `az account get-access-token --resource https://api.fabric.microsoft.com` gives the Spark runtime full OneLake access. The driver therefore uses `fab` for ids and `az` for the session. Prerequisite once per customer tenant: `az login --tenant <tenant-id> --allow-no-subscriptions --use-device-code` (no app registration).
+- Diagnostics are assertion-style (the preamble reports `onelake_access: True/FAILED`). Never decode or print tokens or their claims.
+
 | Command | What it does |
 |---|---|
 | `create <lakehouse_name> [--no-environment]` | POST session bound to that lakehouse, attach the Environment from `target_workspace.json`, wait until `idle` (~2–4 min), run the preamble (workspace-name shim + `import lakehouse_toolbelt`). With `--no-environment` (or when the import fails) the preamble installs the wheel staged at `lh_workspace_shared_resources/Files/libraries/lakehouse_toolbelt-*.whl` into the session driver. |
@@ -32,6 +37,6 @@ Cell numbering comes from `python3 scripts/notebook_cells.py <notebook-content.p
 - Output is `text/plain`; keep prints compact (`show(20, truncate=False)`).
 
 ## Known behaviour
-- A session that fails during startup keeps `state: starting`; the real status is `fabricSessionStateInfo.state = error` with an `errorMessage`. The driver checks both and fails fast.
-- Attaching an Environment from another workspace made the session die at startup (Sept 2026, F8, runtime 1.3 workspace vs runtime 2.0 environment). Use `--no-environment`; headless `fab job run` still uses the notebook's Environment binding.
-- Stage the wheel once per workspace: `fab cp <wheel> ws.Workspace/lh_workspace_shared_resources.Lakehouse/Files/libraries/` (create `Files/libraries` first).
+- A session that fails during startup keeps `state: starting`; the real status is `fabricSessionStateInfo.state = error` + `errorMessage`. The driver checks both and fails fast.
+- Attaching an Environment **from another workspace** kills the Spark session at startup (Livy and `fab job run` alike). Environments must live in the same workspace as the notebooks; copy them with `fab cp <ws>/<env>.Environment <target ws>` and publish.
+- `--no-environment`: the preamble installs the wheel staged at `lh_workspace_shared_resources/Files/libraries/lakehouse_toolbelt-*.whl` into the session driver.

@@ -18,6 +18,10 @@ class _NotebookutilsShim:
 _shim = _NotebookutilsShim()
 _report = {"workspace_name": _ctx["currentWorkspaceName"], "workspace_id": _ctx.get("currentWorkspaceId"),
            "spark": spark.version, "AZURE_SERVICE": "AZURE_SERVICE" in os.environ}
+try:  # assertion-style: does this session have a delegated OneLake identity?
+    notebookutils.fs.ls("Files"); _report["onelake_access"] = True
+except Exception as e:
+    _report["onelake_access"] = f"FAILED: {str(e).splitlines()[0][:120]}"
 def _install_toolbelt_from_shared_resources():
     """Fallback when no Environment is attached: install the wheel staged in lh_workspace_shared_resources/Files/libraries."""
     import subprocess, sys

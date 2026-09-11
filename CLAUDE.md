@@ -12,7 +12,8 @@ lakehouse `lh_<data_product_identifier>`, notebooks `nb_extract_<id>` and `nb_cd
 6. Every item of a data product lives in workspace folder `<id>.Folder`. `lh_workspace_shared_resources` stays at the workspace root.
 
 ## Tools
-- **Only `fab`** (Microsoft Fabric CLI) touches Fabric: items, OneLake files, jobs, Livy sessions via `fab api`. No az, no MCP for Fabric operations.
+- **`fab`** (Microsoft Fabric CLI) is the control plane: items, OneLake files, jobs, REST via `fab api`. No MCP for Fabric operations.
+- **`az login` user token** is required only for Livy Spark sessions (fab's token gives Spark no OneLake identity — see `nor-livy-session`). Two logins per customer tenant, nothing else.
 - **microsoft-learn MCP** is the canonical reference for Fabric capabilities — check it instead of guessing.
 - Scripts under `.claude/skills/*/scripts/` wrap the repeatable `fab` sequences; call them instead of retyping commands.
 
