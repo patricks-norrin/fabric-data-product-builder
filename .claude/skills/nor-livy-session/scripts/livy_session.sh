@@ -29,13 +29,7 @@ submit() { # submit <kind> <codefile>
   python3 -c "import json,sys; json.dump({'kind':sys.argv[1],'code':open(sys.argv[2],encoding='utf-8').read()}, open(sys.argv[3],'w'))" "$1" "$2" "$body"
   local stid; stid=$(livy POST "$BASE/$SID/statements" "$body" | jq_ "d['id']"); [[ "$stid" =~ ^[0-9]+$ ]] || die "statement submit failed"
   local st; while :; do st=$(livy GET "$BASE/$SID/statements/$stid" | jq_ "d.get('state')"); case "$st" in available|error|cancelled) break;; esac; sleep 3; done
-  livy GET "$BASE/$SID/statements/$stid" | python3 -c '
-import json,sys; o=(json.load(sys.stdin).get("output") or {})
-txt=(o.get("data") or {}).get("text/plain","")
-if txt: print(txt)
-if o.get("status")=="error":
-    print(f"ERROR {o.get(\"ename\")}: {o.get(\"evalue\")}"); print("".join(o.get("traceback") or [])[-3000:]); sys.exit(1)
-print(f"[statement ok, execution_count={o.get(\"execution_count\")}]")'
+  livy GET "$BASE/$SID/statements/$stid" | python3 "$HERE/format_statement_output.py"
 }
 
 case "$CMD" in

@@ -142,7 +142,7 @@ for chunk_start, chunk_end in date_chunks(start, end, max_days):
     response = requests.get(url, headers={"Accept": "application/x-ndjson"}, timeout=120)
     response.raise_for_status()
     if response.text.strip():
-        land_payload(dataset, f"exchange_rates_{chunk_start.isoformat()}_{chunk_end.isoformat()}.ndjson", response.text)
+        _ = land_payload(dataset, f"exchange_rates_{chunk_start.isoformat()}_{chunk_end.isoformat()}.ndjson", response.text)
     else:
         print(f"  no rates returned for {chunk_start} -> {chunk_end} (nothing landed)")
 
@@ -167,7 +167,7 @@ source = dataset.source_configuration
 url = source.base_url + source.relative_url_template
 response = requests.get(url, headers={"Accept": "application/json"}, timeout=60)
 response.raise_for_status()
-land_payload(dataset, "currencies.json", response.text)
+_ = land_payload(dataset, "currencies.json", response.text)
 
 # METADATA ********************
 
