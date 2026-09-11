@@ -9,7 +9,7 @@ All commands: `bash .claude/skills/nor-livy-session/scripts/livy_session.sh <com
 
 | Command | What it does |
 |---|---|
-| `create <lakehouse_name>` | POST session bound to that lakehouse, attach the Environment from `target_workspace.json`, wait until `idle` (~2–4 min), run the preamble (workspace-name shim + `import lakehouse_toolbelt` check). |
+| `create <lakehouse_name> [--no-environment]` | POST session bound to that lakehouse, attach the Environment from `target_workspace.json`, wait until `idle` (~2–4 min), run the preamble (workspace-name shim + `import lakehouse_toolbelt`). With `--no-environment` (or when the import fails) the preamble installs the wheel staged at `lh_workspace_shared_resources/Files/libraries/lakehouse_toolbelt-*.whl` into the session driver. |
 | `status` | Session state. |
 | `run-cells <notebook-content.py> [N[,M..]\|all] [--keep-going]` | Submit code cells in notebook order as statements (markdown skipped, `%%sql` cells sent as `sql`), print each output, stop at the first error unless `--keep-going`. |
 | `statement "<code>"` or `statement -f file.py` | Ad-hoc statement (inspect a DataFrame, list files, `spark.sql`). |
@@ -30,3 +30,8 @@ Cell numbering comes from `python3 scripts/notebook_cells.py <notebook-content.p
 - `notebookutils.runtime.context["currentWorkspaceName"]` is None in Livy; the preamble patches lakehouse_toolbelt with the workspace name from `target_workspace.json`. Notebooks themselves stay unchanged.
 - Use `abfss://` paths via the toolbelt, never `/lakehouse/default/...` mounts.
 - Output is `text/plain`; keep prints compact (`show(20, truncate=False)`).
+
+## Known behaviour
+- A session that fails during startup keeps `state: starting`; the real status is `fabricSessionStateInfo.state = error` with an `errorMessage`. The driver checks both and fails fast.
+- Attaching an Environment from another workspace made the session die at startup (Sept 2026, F8, runtime 1.3 workspace vs runtime 2.0 environment). Use `--no-environment`; headless `fab job run` still uses the notebook's Environment binding.
+- Stage the wheel once per workspace: `fab cp <wheel> ws.Workspace/lh_workspace_shared_resources.Lakehouse/Files/libraries/` (create `Files/libraries` first).

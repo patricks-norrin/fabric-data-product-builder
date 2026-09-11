@@ -18,8 +18,24 @@ class _NotebookutilsShim:
 _shim = _NotebookutilsShim()
 _report = {"workspace_name": _ctx["currentWorkspaceName"], "workspace_id": _ctx.get("currentWorkspaceId"),
            "spark": spark.version, "AZURE_SERVICE": "AZURE_SERVICE" in os.environ}
+def _install_toolbelt_from_shared_resources():
+    """Fallback when no Environment is attached: install the wheel staged in lh_workspace_shared_resources/Files/libraries."""
+    import subprocess, sys
+    libraries = f"abfss://{_ctx['currentWorkspaceName']}@onelake.dfs.fabric.microsoft.com/lh_workspace_shared_resources.Lakehouse/Files/libraries"
+    wheels = [f for f in notebookutils.fs.ls(libraries) if f.name.startswith("lakehouse_toolbelt") and f.name.endswith(".whl")]
+    if not wheels:
+        raise RuntimeError(f"no lakehouse_toolbelt wheel under {libraries}")
+    local = f"/tmp/{wheels[-1].name}"
+    notebookutils.fs.cp(wheels[-1].path, f"file:{local}")
+    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", local], check=True)
+    return wheels[-1].name
+
 try:
-    import lakehouse_toolbelt
+    try:
+        import lakehouse_toolbelt
+    except ImportError:
+        _report["wheel_installed"] = _install_toolbelt_from_shared_resources()
+        import lakehouse_toolbelt
     import lakehouse_toolbelt._env_helper as _env
     import lakehouse_toolbelt._data_product_class as _dpc
     import lakehouse_toolbelt._configuration_helpers as _cfg
