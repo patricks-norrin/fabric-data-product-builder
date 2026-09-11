@@ -1,0 +1,24 @@
+{
+  "domain": "academy",
+  "data_product_identifier": "mdm_extract_dat1",
+  "datasets": [
+    {
+      "dataset_name": "customer",
+      "unique_identifier_columns": ["customer_id"],
+      "exclude_columns_from_payload_checksum": [],
+      "timestamp_columns_to_convert": [],
+      "personal_data_columns": [],
+      "object_version_timestamp_column": "",
+      "source_configuration": {}
+    },
+    {
+      "dataset_name": "product",
+      "unique_identifier_columns": ["product_id"],
+      "exclude_columns_from_payload_checksum": [],
+      "timestamp_columns_to_convert": [],
+      "personal_data_columns": [],
+      "object_version_timestamp_column": "",
+      "source_configuration": {}
+    }
+  ]
+}

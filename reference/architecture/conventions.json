@@ -1,0 +1,17 @@
+{
+  "workspace_name": "^ws_[a-z0-9]+(_[a-z0-9]+)*$",
+  "data_product_identifier": "^[a-z][a-z0-9]*(_[a-z0-9]+)*$",
+  "dataset_name": "^[a-z][a-z0-9]*(_[a-z0-9]+)*$",
+  "product_folder": "{data_product_identifier}",
+  "product_lakehouse": "lh_{data_product_identifier}",
+  "shared_resources_lakehouse": "lh_workspace_shared_resources",
+  "config_path": "Files/configuration/data_product/{data_product_identifier}/{data_product_identifier}.json",
+  "project_configuration_path": "Files/configuration/data_product/project_configuration/project_configuration.json",
+  "extract_notebook": "nb_extract_{data_product_identifier}",
+  "cdc_notebook": "nb_cdc_{data_product_identifier}",
+  "pipeline": "pl_{data_product_identifier}",
+  "raw_path": "Files/{data_product_identifier}/{dataset_name}/raw/{batch_id}",
+  "batch_id": "^[0-9]{8}T[0-9]{6}Z$",
+  "change_history_table": "Tables/{data_product_identifier}/{dataset_name}",
+  "reserved_columns_before_dpmeta": ["dpmeta_input_file_name", "dpmeta_source_system_id"]
+}

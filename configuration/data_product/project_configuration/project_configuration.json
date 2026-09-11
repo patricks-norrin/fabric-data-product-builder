@@ -1,0 +1,14 @@
+{
+  "source_configuration": {
+    "allowed_extra_attributes": [
+      "response_format",
+      "spark_read_format",
+      "spark_read_options",
+      "incremental_strategy",
+      "notes"
+    ]
+  },
+  "publish_configuration": {
+    "allowed_extra_attributes": []
+  }
+}

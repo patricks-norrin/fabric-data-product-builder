@@ -1,0 +1,15 @@
+{
+  "name": "norrin-fabric-data-product-toolpack",
+  "image": "mcr.microsoft.com/devcontainers/python:1-3.12-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "lts" },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "postCreateCommand": "pip install --upgrade ms-fabric-cli && npm install -g @anthropic-ai/claude-code",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "anthropic.claude-code"]
+    }
+  },
+  "remoteEnv": { "FAB_HOST_APP": "norrin-toolpack" }
+}

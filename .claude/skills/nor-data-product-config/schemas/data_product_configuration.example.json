@@ -1,0 +1,23 @@
+{
+  "domain": "<business domain, e.g. treasury>",
+  "data_product_identifier": "<source_system_id snake_case>",
+  "datasets": [
+    {
+      "dataset_name": "<entity snake_case>",
+      "unique_identifier_columns": ["<key_col_1>", "<key_col_2>"],
+      "exclude_columns_from_payload_checksum": [],
+      "timestamp_columns_to_convert": [],
+      "personal_data_columns": [],
+      "object_version_timestamp_column": "",
+      "source_configuration": {
+        "base_url": "https://api.example.com/v2",
+        "relative_url_template": "/{api_resource}?from={start_date}",
+        "endpoint_query_parameters": { "api_resource": "entities", "initial_load_start_date": "2020-01-01" },
+        "response_format": "json|ndjson|csv",
+        "spark_read_format": "json",
+        "spark_read_options": { "multiLine": "false" },
+        "notes": "why this key, cadence, quirks"
+      }
+    }
+  ]
+}
