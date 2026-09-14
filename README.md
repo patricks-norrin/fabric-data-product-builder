@@ -14,6 +14,7 @@ Single execution surface: the Microsoft Fabric CLI (`fab`). One login per custom
 - `reference/lakehouse_toolbelt/` — vendored toolbelt docs and examples (runtime contract)
 - `configuration/` — target workspace and data product configurations (JSON)
 - `notebooks/<data_product_identifier>/` — notebook definitions in Fabric `.py` format
+- `docs/` — how this repo is structured, why each piece exists, conventions and decisions made building it
 
 Start: `fab auth login --tenant <tenant-id>`, edit `configuration/target_workspace.json`, then ask the agent:
 "Build the source-aligned data product for <API>".
