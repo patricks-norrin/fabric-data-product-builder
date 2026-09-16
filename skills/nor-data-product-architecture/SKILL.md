@@ -1,6 +1,7 @@
 ---
 name: nor-data-product-architecture
 description: "Norrin architecture for Microsoft Fabric data products. Use before designing, naming or creating anything: deciding data product boundaries (one source system is one product, datasets inside), lakehouse and workspace responsibilities (ws_extract, lh_<id>, lh_workspace_shared_resources), raw-as-insurance landing, when CDC change history applies versus snapshot or non-tabular exceptions, naming and folder conventions."
+---
 
 # Norrin data product architecture — decision rules
 
