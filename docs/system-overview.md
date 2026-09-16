@@ -95,7 +95,7 @@ exposes that context to shell skills and resolves `$WORKSPACE_ID`/`$ENVIRONMENT_
 |---|---|---|
 | `nor-data-product-builder` | Canonical non-negotiable rules and orchestration | Loaded identically by each plugin harness |
 | `nor-data-product-architecture` | Decision rules (boundaries, keys, CDC-vs-exception) | Pure reasoning, no side effects, reused by every other skill's judgment calls |
-| `nor-environment-check` | Read-only prerequisite verification | Must run before anything else; isolates "is the platform ready" from "build the thing" |
+| `nor-environment-check` | Prerequisite verification and shared-resource bootstrap | Must run before anything else; isolates "is the platform ready" from "build the thing" |
 | `nor-data-product-config` | Author/validate/push config, provision folder + lakehouse | The only place that touches the shared-resources lakehouse and creates the product's Fabric container |
 | `nor-notebook-author` | Turn config + API knowledge into the two notebooks | Templating is mechanical and reusable across data products; only the source-specific cells differ |
 | `nor-livy-session` | Cell-by-cell dev loop with real output | The only way to see what a cell produces without VS Code; isolates the auth complexity (az vs fab tokens) |

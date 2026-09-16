@@ -1,6 +1,6 @@
 ---
 name: nor-notebook-author
-description: Author the two single-responsibility notebooks of a source-aligned data product from templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id> (raw to lakehouse_toolbelt change history). Renders default-lakehouse and Environment bindings, then you write only the source-specific extraction cells from the API documentation.
+description: Author the two single-responsibility notebooks of a source-aligned data product from templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id> (raw to lakehouse_toolbelt change history). Renders default-lakehouse bindings and bootstraps lakehouse_toolbelt from the shared OneLake wheel, then you write only the source-specific extraction cells from the API documentation.
 ---
 
 # nor-notebook-author
@@ -13,8 +13,10 @@ from its Git root, falling back to the current directory outside Git.
 python3 "$TOOLPACK_ROOT/skills/nor-notebook-author/scripts/render_notebook.py" extract sample_api --workspace ws_example --target dev
 python3 "$TOOLPACK_ROOT/skills/nor-notebook-author/scripts/render_notebook.py" cdc sample_api --workspace ws_example --target dev
 ```
-Writes `ws_<name>/<id>/nb_<kind>_<id>.Notebook/{notebook-content.py,.platform}` with workspace,
-lakehouse (`lh_<id>`) and Environment ids resolved via `fab`. `nb_cdc` is complete as rendered — it is fully
+Writes `ws_<name>/<id>/nb_<kind>_<id>.Notebook/{notebook-content.py,.platform}` with workspace and
+lakehouse (`lh_<id>`) resolved via `fab`. Generated notebooks install the verified `lakehouse_toolbelt` wheel
+from `lh_workspace_shared_resources/Files/libraries/` when it is not already present, so they can use the
+workspace default Spark pool without an Environment binding. `nb_cdc` is complete as rendered — it is fully
 driven by the config. `nb_extract` has one marked cell per dataset (`# --- SOURCE SPECIFIC: <dataset> ---`) for
 you to implement.
 

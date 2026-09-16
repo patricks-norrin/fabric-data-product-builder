@@ -24,8 +24,19 @@ case "$CAP_SKU" in F2|F4) [ "$POOL" = "Starter Pool" ] && warn "pool: '$POOL' on
 
 echo "== shared resources"
 SHARED_ID=$(item_id lh_workspace_shared_resources Lakehouse)
-if [ -n "$SHARED_ID" ]; then pass "lh_workspace_shared_resources ($SHARED_ID)"; else fail "lh_workspace_shared_resources missing"; fi
 SHARED_PATH="$WORKSPACE_PATH/lh_workspace_shared_resources.Lakehouse"
+if [ -n "$SHARED_ID" ]; then
+  pass "lh_workspace_shared_resources ($SHARED_ID)"
+else
+  info "lh_workspace_shared_resources missing; creating it at workspace root"
+  fab mkdir "$SHARED_PATH" -P enableSchemas=true >/dev/null 2>&1 || fail "could not create lh_workspace_shared_resources"
+  for i in $(seq 1 12); do
+    SHARED_ID=$(item_id lh_workspace_shared_resources Lakehouse)
+    [ -n "$SHARED_ID" ] && break
+    sleep 5
+  done
+  if [ -n "$SHARED_ID" ]; then pass "lh_workspace_shared_resources created ($SHARED_ID)"; else fail "lh_workspace_shared_resources was not visible after creation"; fi
+fi
 if [ -n "$SHARED_ID" ]; then
   if fab exists "$SHARED_PATH/Files/configuration/data_product/project_configuration/project_configuration.json" 2>/dev/null | strip_cr | grep -qi true; then pass "project_configuration.json present"; else warn "project_configuration.json missing (push with nor-data-product-config if configs use extra source attributes)"; fi
 fi
@@ -39,7 +50,7 @@ if [ -n "$ENVIRONMENT_ID" ]; then
   VER=$(echo "$WHEELS" | grep -o 'lakehouse_toolbelt-[0-9.]*[0-9]' | head -1 | sed 's/lakehouse_toolbelt-//')
   python3 -c "import sys; v=tuple(int(x) for x in '$VER'.split('.')); sys.exit(0 if v>=(1,0,7) else 1)" 2>/dev/null && pass "toolbelt wheel $VER >= 1.0.7 (project_configuration support)" || fail "toolbelt wheel '$VER' < 1.0.7: configs with extra source_configuration attributes will fail (SourceConfiguration/filter_string bug)"
   [ "$ENVIRONMENT_WORKSPACE_ID" = "$WORKSPACE_ID" ] && pass "environment lives in the target workspace" || fail "environment is in another workspace: Spark session acquisition fails for notebooks and Livy (copy it with fab cp)"
-else fail "no environment configured for $WORKSPACE_KEY in $TARGET_FILE"; fi
+else warn "no environment configured for $WORKSPACE_KEY; notebooks will install lakehouse_toolbelt from shared resources"; fi
 
 echo "== Azure CLI token (Livy Spark sessions)"
 if az account get-access-token --resource https://api.fabric.microsoft.com --query expiresOn -o tsv >/dev/null 2>&1; then pass "az token for api.fabric.microsoft.com available"; else warn "no az token: Livy dev loop unavailable until 'az login --tenant <id> --allow-no-subscriptions --use-device-code'"; fi

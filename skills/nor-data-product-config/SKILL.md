@@ -27,4 +27,16 @@ Checks the same rules as the toolbelt validator (unique dataset names, allowed `
 bash "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/push_data_product_config.sh" sample_api
 bash "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/push_data_product_config.sh" sample_api --no-provision --workspace ws_example --target dev
 ```
-Idempotent: existing items/dirs are left alone. Prints the OneLake path and the lakehouse id (needed for notebook default-lakehouse binding).
+Idempotent: existing items/dirs are left alone. If the shared resources lakehouse is absent, it is created at
+workspace root. Prints the OneLake path and the lakehouse id (needed for notebook default-lakehouse binding).
+
+Stage the runtime wheel used by generated notebooks:
+
+```bash
+bash "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/push_toolbelt_wheel.sh" \
+	/path/to/lakehouse_toolbelt-1.0.7-py3-none-any.whl
+```
+
+The wheel must be version 1.0.7 or newer and is uploaded to
+`lh_workspace_shared_resources/Files/libraries/`. Use a verified artifact supplied by the project or toolbelt
+release process.

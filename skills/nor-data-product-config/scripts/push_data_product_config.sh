@@ -12,7 +12,15 @@ CFG="$PROJECT_ROOT/configuration/data_product/$DP/$DP.json"; PROJ="$PROJECT_ROOT
 (cd "$PROJECT_ROOT" && python3 "$SCRIPT_DIR/validate_data_product_config.py" "$CFG") || die "config invalid"
 need_target
 SHARED="$WORKSPACE_PATH/lh_workspace_shared_resources.Lakehouse"
-fab exists "$SHARED" 2>/dev/null | strip_cr | grep -qi true || die "lh_workspace_shared_resources missing in $WORKSPACE_NAME (platform prerequisite)"
+if ! fab exists "$SHARED" 2>/dev/null | strip_cr | grep -qi true; then
+  info "creating lh_workspace_shared_resources at workspace root"
+  fab mkdir "$SHARED" -P enableSchemas=true >/dev/null 2>&1 || die "mkdir shared lakehouse failed"
+  for i in $(seq 1 12); do
+    fab exists "$SHARED" 2>/dev/null | strip_cr | grep -qi true && break
+    sleep 5
+  done
+fi
+fab exists "$SHARED" 2>/dev/null | strip_cr | grep -qi true || die "lh_workspace_shared_resources was not visible after creation"
 
 info "pushing configuration"
 onelake_mkdir_p "$SHARED" "Files/configuration/data_product/$DP"

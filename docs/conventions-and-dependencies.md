@@ -108,7 +108,7 @@ lengths. If an audience genuinely needs checking, print `aud` alone.
 - A Livy session with **no Environment attached** starts in ~10 seconds vs. several minutes with one; the
   preamble's fallback (pip-install the wheel staged in `lh_workspace_shared_resources/Files/libraries/`) makes
   `--no-environment` the faster path for iteration during development, while headless job runs still use the
-  notebook's own Environment binding for parity with how it will run in production.
+  generated notebooks install the verified wheel from shared OneLake and run on the workspace default pool.
 
 ## Safety and scope conventions
 

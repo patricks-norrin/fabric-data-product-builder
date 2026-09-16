@@ -94,7 +94,10 @@ class RenderNotebookTests(unittest.TestCase):
                 / "notebook-content.py"
             )
             self.assertTrue(rendered.is_file())
-            self.assertIn("things", rendered.read_text(encoding="utf-8"))
+            rendered_content = rendered.read_text(encoding="utf-8")
+            self.assertIn("things", rendered_content)
+            self.assertIn("ensure_toolbelt_from_shared_resources", rendered_content)
+            self.assertNotIn('"environment": {', rendered_content)
             platform = json.loads((rendered.parent / ".platform").read_text(encoding="utf-8"))
             self.assertEqual(platform["version"], "2.0")
             self.assertNotEqual(

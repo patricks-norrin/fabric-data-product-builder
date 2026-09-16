@@ -28,7 +28,7 @@ and `reference/lakehouse_toolbelt/docs/` for the long form).
 
 ## nor-environment-check
 
-**Description:** "Read-only prerequisite check of the target Fabric workspace before building a data product -
+**Description:** "Prerequisite check of the target Fabric workspace before building a data product -
 fab login, workspace, capacity state and SKU vs default Spark pool, lh_workspace_shared_resources,
 project_configuration.json, the Environment carrying lakehouse_toolbelt, Livy API reachability, and
 (optionally) an existing data product's lakehouse and config. Creates nothing."
@@ -83,7 +83,7 @@ Norrin naming rules from `reference/architecture/conventions.json`); `scripts/pu
 
 **Description:** "Author the two single-responsibility notebooks of a source-aligned data product from
 templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id>
-(raw to lakehouse_toolbelt change history). Renders default-lakehouse and Environment bindings, then you
+(raw to lakehouse_toolbelt change history). Renders default-lakehouse bindings and stages the wheel from shared OneLake, then you
 write only the source-specific extraction cells from the API documentation."
 
 **Reason to exist:** ~90% of both notebooks (parameters cell, config loading, dpmeta processing, the CDC

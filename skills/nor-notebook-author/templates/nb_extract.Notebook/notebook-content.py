@@ -17,10 +17,6 @@
 # META         }
 # META       ]
 # META     },
-# META     "environment": {
-# META       "environmentId": "{{ENVIRONMENT_ID}}",
-# META       "workspaceId": "{{ENVIRONMENT_WORKSPACE_ID}}"
-# META     }
 # META   }
 # META }
 
@@ -54,9 +50,34 @@ backfill_end_date = ""
 # CELL ********************
 
 import json
+import subprocess
+import sys
 from datetime import datetime, date, timedelta
 
+import notebookutils
 import requests
+
+
+def ensure_toolbelt_from_shared_resources():
+    try:
+        import lakehouse_toolbelt
+        return
+    except ImportError:
+        pass
+    workspace_name = notebookutils.runtime.context["currentWorkspaceName"]
+    library_path = f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/lh_workspace_shared_resources.Lakehouse/Files/libraries"
+    wheels = sorted(
+        wheel for wheel in notebookutils.fs.ls(library_path)
+        if wheel.name.startswith("lakehouse_toolbelt-") and wheel.name.endswith(".whl")
+    )
+    if not wheels:
+        raise RuntimeError(f"no lakehouse_toolbelt wheel under {library_path}")
+    local_path = f"/tmp/{wheels[-1].name}"
+    notebookutils.fs.cp(wheels[-1].path, f"file:{local_path}")
+    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", local_path], check=True)
+
+
+ensure_toolbelt_from_shared_resources()
 import lakehouse_toolbelt
 
 # METADATA ********************
