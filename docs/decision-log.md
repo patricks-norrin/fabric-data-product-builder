@@ -99,3 +99,26 @@ isolated test workspace. Both notebooks ran clean cell-by-cell over Livy and com
 after the Environment was copied into the target workspace and republished with toolbelt 1.0.7. The resulting
 change-history tables had the expected row counts and complete `dpmeta_*` schema. The test capacity was paused
 at the end of the session per instruction #18.
+
+## Packaging and first publish (2026-09-16)
+
+21. **Agent file renamed to `nor-data-product-builder.agent.md`.** GitHub's plugin documentation requires
+    custom agents to match `agents/*.agent.md`; a plain `.md` is skipped. Nothing errors when it is skipped —
+    the plugin installs and reports its skill count normally — so this would have been an invisible failure.
+22. **Stayed on the legacy plugin format.** Agent Plugins 1.0 (opt-in via `$schema` in `plugin.json`) makes
+    skills and MCP servers portable across clients but relocates agents, hooks and commands under
+    `com.github.copilot/`, which Claude Code and Cursor ignore. Since the agent is the part carrying Norrin's
+    conventions, hiding it in a Copilot-branded directory defeats the multi-harness goal.
+23. **No `.github/plugin/marketplace.json`.** Assumed necessary because Microsoft's `skills-for-fabric` ships
+    one; disproven by running `copilot plugin marketplace add` against the repo, which read the existing
+    `.claude-plugin/marketplace.json`. One fewer duplicated manifest to maintain.
+24. **Marketplace install, not direct URL install.** Both work against Azure DevOps, but direct installs from
+    repos, URLs and local paths emit a deprecation warning stating that only `plugin@marketplace` will be
+    supported in future. Engagement onboarding instructions must therefore use `marketplace add` + install.
+    `copilot plugin install owner/repo` is GitHub-only and cannot reach Azure DevOps at all.
+25. **Local branch renamed `master` → `main` before the first force push.** The remote's only branch was
+    `main`. Pushing `master` as-is would have left two branches, and `git clone` on a fresh machine checks out
+    the remote default — landing it on the pre-existing unrelated content instead of the toolpack.
+26. **Published state is explicitly unproven.** The pack installs correctly, but agent invocation, the test
+    suite, and the extract + CDC loop have all not been exercised since the restructure. Recorded here so the
+    publish is not mistaken for a validation. See `packaging-and-distribution.md` § Not verified.
