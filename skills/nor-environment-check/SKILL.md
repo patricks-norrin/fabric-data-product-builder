@@ -14,6 +14,9 @@ bash "$TOOLPACK_ROOT/skills/nor-environment-check/scripts/check_environment.sh"
 bash "$TOOLPACK_ROOT/skills/nor-environment-check/scripts/check_environment.sh" sample_api --workspace ws_example --target dev
 ```
 
+Run the script directly; do not inspect `fab --help` or substitute a `whoami` command. Its first read-only
+authentication probe is `fab auth status`, and it stops before workspace calls when that probe reports no login.
+
 Reads `configuration/fabric_targets.json`, using its active target and default logical workspace unless
 overridden. Prints `PASS/WARN/FAIL` lines and exits non-zero on any FAIL.
 
