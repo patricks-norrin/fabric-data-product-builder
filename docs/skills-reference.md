@@ -38,7 +38,8 @@ the SKU, Environment in the wrong workspace, wheel too old, no `az` token) is a 
 the data product logic. Running one script first turns a confusing mid-build failure into a named, actionable
 line before any Fabric object is touched.
 
-**Inputs:** `configuration/target_workspace.json`; optional `<data_product_identifier>` argument.
+**Inputs:** `configuration/fabric_targets.json`; optional `<data_product_identifier>`, `--workspace`, and
+`--target` arguments.
 **Outputs:** PASS/WARN/FAIL lines to stdout; non-zero exit on any FAIL.
 **Calls:** `scripts/check_environment.sh` → sources `scripts/fab_common.sh` → `fab`, `az account get-access-token`.
 
@@ -90,9 +91,9 @@ upsert loop, summaries) is identical across every data product — it's the tool
 Only the cells that actually call the API differ. Templating that fixed part means every product gets the
 same tested pattern, and the agent's real work is scoped to the small part that has to differ.
 
-**Inputs:** `configuration/data_product/<id>/<id>.json`; `configuration/target_workspace.json`; the two
+**Inputs:** `configuration/data_product/<id>/<id>.json`; `configuration/fabric_targets.json`; the two
 templates under `templates/nb_extract.Notebook/` and `templates/nb_cdc.Notebook/`; `templates/platform.json`.
-**Outputs:** `notebooks/<id>/nb_extract_<id>.Notebook/{notebook-content.py,.platform}` and the `nb_cdc`
+**Outputs:** `ws_<name>/<id>/nb_extract_<id>.Notebook/{notebook-content.py,.platform}` and the `nb_cdc`
 equivalent, with `default_lakehouse`, `default_lakehouse_workspace_id` and `environmentId`/`workspaceId`
 resolved to real GUIDs via `fab`. `nb_cdc` is complete as rendered (fully config-driven); `nb_extract` has one
 `# --- SOURCE SPECIFIC: <dataset> ---` cell per dataset for the agent/human to implement.
@@ -120,7 +121,8 @@ and Python tracebacks per cell, in order, with state persisting between cells li
 
 **Inputs:** a lakehouse name (session target); a `notebook-content.py` file and a cell selector (`all` or
 comma-separated indices) for `run-cells`; arbitrary code for ad-hoc `statement`.
-**Outputs:** per-cell stdout/tracebacks printed to the terminal; session state in `.scratch/livy_session.json`
+**Outputs:** per-cell stdout/tracebacks printed to the terminal; session state in
+`.scratch/<ws_name>/livy/livy_session.json`
 (gitignored — session-local, not repo state).
 **Calls:** `scripts/livy_session.sh` (sources `fab_common.sh` only for id lookups — the session itself is
 created and driven with `az account get-access-token` + `curl`, **not** `fab api`; see conventions doc for
@@ -171,7 +173,7 @@ single clear output. This is the one place that needs judgment — reading unfam
 datasets/keys, deciding when a Livy failure means "fix this cell" vs. "stop and ask," deciding when to fall
 back to headless-only if Livy is unavailable, and writing an evidence-based report rather than a claim.
 
-**Procedure it enforces** (verbatim structure from `.claude/agents/nor-data-product-builder.md`):
+**Procedure it enforces** (verbatim structure from `agents/nor-data-product-builder.agent.md`):
 1. Load `nor-data-product-architecture`, run `nor-environment-check`; stop and report on failure.
 2. Understand the source (WebFetch the docs, sample endpoints with `curl`) → decide datasets/keys/timestamps,
    write reasoning into `source_configuration.notes`.

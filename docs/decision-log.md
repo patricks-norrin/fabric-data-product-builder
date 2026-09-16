@@ -4,6 +4,10 @@ Chronological record of decisions made while scoping and building iteration 1, a
 the framing decisions that shaped everything after; later entries are what was learned by actually running it.
 All dated entries are 2026-09-11 (commit timestamps) unless noted.
 
+This is retained as development history because it records verified platform behavior and rejected design
+alternatives. Customer-specific workspace, capacity, Environment, and repository names are intentionally
+generalized.
+
 ## Framing (before any code was written)
 
 1. **Scope of "source-aligned data product"** — config, lakehouse, both notebooks (extract + CDC), raw files,
@@ -37,7 +41,7 @@ All dated entries are 2026-09-11 (commit timestamps) unless noted.
 8. **Config location is the shared-resources lakehouse, not the product lakehouse** — corrected after an
    initial draft assumed the config lived next to the data it describes. Verified against the actual
    `lakehouse_toolbelt` source (`_data_product_class._return_path_prefix`) and a real example notebook/config
-   from the `academy_lab5_data_products` repo before trusting the location.
+   from an internal reference implementation before trusting the location.
 9. **Raw vs. Tables split** — raw lands in `Files/`, change history is a Delta table under `Tables/` on a
    schema-enabled lakehouse (not `Files/.../change_history/`, which is only the fallback path for
    non-schema-enabled lakehouses). Also verified against toolbelt source and a real run's printed paths, not
@@ -62,26 +66,24 @@ All dated entries are 2026-09-11 (commit timestamps) unless noted.
     classifier false positive (credential-extraction shape) that silently swapped the running model mid-turn.
     Rewritten to report pass/fail of an actual operation instead. See `conventions-and-dependencies.md`.
 15. **Environment must live in the same workspace as the notebook/session** — discovered when attaching
-    `env_academy` (in a different workspace, sharing the same capacity) killed Spark session acquisition on
+    an Environment in a different workspace, sharing the same capacity, killed Spark session acquisition on
     *both* the Livy path and headless `fab job run`, on two different Spark runtime versions. Ruled out runtime
     mismatch as the cause before accepting workspace-locality as the actual constraint. Fixed by `fab cp`-ing
     the Environment into the target workspace and republishing.
-16. **Toolbelt wheel version pinned to ≥ 1.0.7** — 1.0.6 (what `env_academy` shipped) threw an `AttributeError`
+16. **Toolbelt wheel version pinned to ≥ 1.0.7** — 1.0.6 (what the test Environment shipped) threw an `AttributeError`
     inside `SourceConfiguration.__init__` on any config that didn't set a now-deprecated key. Found by reading
     the actual traceback against the actual source across wheel versions, not by guessing at a version bump.
     `nor-environment-check` now asserts this as a FAIL condition.
 
 ## Explicit operational instructions given during the build
 
-17. Standing scope limit: "`ws_extract_agent_test` is yours to play in. **DO NOT CHANGE ANYTHING OUTSIDE OF
-    IT.**" Capacity `academynorth` may be consumed (already attached and running) but never started/stopped
-    without being told to.
-18. "After finishing, shutdown the capacity and report findings" and, separately, "pause academynorth-capacity
-    ... do not keep capacity or token count running any longer than necessary" — both followed literally each
-    time a work session ended, including pausing a capacity that was resumed specifically for the next session.
-19. Ultimate-goal framing for `nor-notebook-author`/the agent: given only a source's API documentation (e.g.
-    frankfurter.dev), the agent should be able to propose config + extract/CDC notebooks independently. The
-    existing lab-5 Frankfurter implementation may be used as a **sanity check and model**, but the toolpack's
+17. Standing scope limit: only the explicitly assigned isolated test workspace could be changed. Its shared
+    capacity could be consumed but never started or stopped without an explicit instruction.
+18. Capacity cleanup instructions were followed whenever a work session ended; no customer-specific capacity
+    names are retained here.
+19. Ultimate-goal framing for `nor-notebook-author`/the agent: given only a source's API documentation, the
+    agent should be able to propose config + extract/CDC notebooks independently. An existing internal
+    implementation may be used as a **sanity check and model**, but the toolpack's
     output must be able to reproduce an equivalent solution **without copying it** — this is why
     `render_notebook.py` generates from templates + live API sampling rather than adapting the lab-5 notebook.
 20. If the Livy path does not "unfold" within reasonable effort, **note findings and abort — do not spend
@@ -92,9 +94,8 @@ All dated entries are 2026-09-11 (commit timestamps) unless noted.
 
 ## Result as of the last verified run (2026-09-11, evening)
 
-The full extract → Livy dev loop → CDC → headless-run cycle was proven for `frankfurter_api` in
-`ws_extract_agent_test`: both notebooks ran clean cell-by-cell over Livy, then both ran to `Completed` via
-`fab job run` after the Environment was copied into the target workspace and republished with toolbelt 1.0.7.
-`Tables/frankfurter_api/exchange_rates` (363,360 current rows) and `Tables/frankfurter_api/currencies` (165
-rows) exist with full `dpmeta_*` schema. Capacity `academynorth` was paused at the end of the session per
-instruction #18.
+The full extract → Livy dev loop → CDC → headless-run cycle was proven for a public exchange-rate API in an
+isolated test workspace. Both notebooks ran clean cell-by-cell over Livy and completed through `fab job run`
+after the Environment was copied into the target workspace and republished with toolbelt 1.0.7. The resulting
+change-history tables had the expected row counts and complete `dpmeta_*` schema. The test capacity was paused
+at the end of the session per instruction #18.

@@ -8,7 +8,7 @@ Runtime contract (paths, config, functions): `reference/lakehouse_toolbelt/`.
 
 ## Core Pattern: 1 Data Product = 1 Lakehouse
 
-Every data product — whether source-aligned (extraction) or business-modeled — gets its own dedicated lakehouse. This enables:
+Every data product — whether source-aligned (extraction) or consumer-aligned (Foundational, Business, Analytical) — gets its own dedicated lakehouse. This enables:
 - **Per-product access control** — owner defines who can read/write at lakehouse level
 - **Lakehouse-level lineage** — Fabric lineage graph shows product-to-product dependencies
 - **Multi-schema perspectives** — e.g., GDPR product with `restricted` schema (full PII) + `non_sensitive` schema (pseudonymized)
@@ -25,6 +25,77 @@ It **ALSO includes** the versioned change history that is easier to consume down
 - **Logical cohesion** — both are representations of the same source data
 - **Lineage clarity** — downstream consumers see one source product, not fragmented layers
 
+**Scoping what gets extracted**: source systems commonly hold data belonging to multiple legal entities,
+business units or processes, and are **considered sensitive unless explicitly categorized otherwise**. Only
+extract the datasets actually needed — for an exploratory data-product definition, or for a confirmed
+production need — not the whole source system. Exploratory extraction should happen in a **disposable branch
+workspace** (e.g. `{issue_number}_ws_extract_dev`, see Naming Conventions below) so that anything
+sensitive-but-not-yet-classified is destroyed with the workspace when the branch is torn down; only the
+classified, defined datasets get promoted into the permanent production source-aligned product. This is the
+**recommended** way of working — in practice, Fabric's own limitations around networking and managed identity
+often make full branch-workspace isolation impractical, so treat it as the target to apply where feasible, not
+a hard gate every extraction must pass.
+
+**Why CDC by default**: `lakehouse_toolbelt`'s SCD2 upsert isn't just "nice to have" versioning — it is what
+absorbs out-of-order arrival, backfill, and delta/incremental loading without bespoke logic per source. This is
+the concrete operational reason CDC is the default for every tabular dataset, not an aesthetic preference.
+
+**Non-notebook constructions**: extract+CDC notebooks (what this toolpack builds) are one way to build a
+source-aligned product, not the only one. **OneLake shortcuts** and **Fabric Mirroring** are also valid
+source-aligned constructions — documented here for architectural completeness; this toolpack does not build
+either yet.
+
+**Focus of this layer**: reliable, troubleshootable, monitorable, secure introduction of external data to the
+platform — not business meaning. Business meaning starts at Foundational, below. Owned by an IT-led
+"Extraction as a Service" function; accessible only to the named technical team responsible for that source.
+
+## Consumer-Aligned Data Products: Foundational, Business, Analytical
+
+Everything that is not source-aligned is **consumer-aligned** — built and owned with the business, for the
+business, as opposed to source-aligned's IT/technical ownership. Consumer-aligned has three tiers:
+
+### Foundational
+
+The **lego brick**: one business concept, modeled, described and owned together with the business —
+`customer`, `product`, `purchase_order`, `sales_order`, `general_ledger`, `chart_of_accounts`, `calendar`,
+`exchange_rates`, `organization`. Every column has a business-defined meaning; only columns needed for
+relationships, identity or lineage are technical, and those are always `dpmeta_`-prefixed so business and
+technical columns are never ambiguous side by side.
+
+A foundational product has **little value in isolation** — its value proposition is reusability and validation
+through usage. The same `customer` brick should be usable, unmodified, in ten different Business (or
+Analytical) products; every additional consumer that adopts it without needing a fork is evidence the brick is
+well-designed. Rules and definitions are signed off by the business and must be **written into the modeling
+notebook next to the code that implements them** (markdown cells carrying the business rule/definition right
+above the cell that enforces it) — this is what makes the model debuggable, lets an agent iterate on it
+correctly, and lets documentation be generated from the code rather than maintained separately.
+
+### Business
+
+Combines **multiple foundational bricks** into something valuable to answer a business question — typically a
+fact linked to shared dimensions such as `calendar` and `organization`. Consumed via Power BI today; data
+agents are an increasingly relevant consumption channel.
+
+### Analytical (optional)
+
+Only exists when a Business product needs transformation beyond standard modeling: complex UIs, purpose-built
+indexes, graph representations, and similar. Not every business product needs one.
+
+### Ownership and access across the tiers
+
+| | Source-aligned | Consumer-aligned (Foundational/Business/Analytical) |
+|---|---|---|
+| Owned by | IT — "Extraction as a Service" | Modeled with, and owned by, the business |
+| Visible to | Named technical team only | Whole organization |
+| Baseline access | N/A (restricted) | OneLake catalog → Excel is the easy path |
+| Access control | Per-lakehouse | Ideally enforced **once**, at the data layer (row-level security, column-level security, data masking) so every consumption channel — Excel, Power BI, Graph API, a data agent — inherits the same rule from a single access-control/audit engine, instead of each channel reimplementing it |
+
+Technical/integration consumers are served by a Foundational or Business product depending on what they need —
+they are not a separate architectural tier.
+
+**Classification/sensitivity taxonomy**: deferred. "Sensitive unless categorized" (above) is the working
+assumption until a formal scheme exists; no `classification` config attribute exists yet.
+
 ## Lakehouse Folder Convention
 
 Raw data lands in a structured folder hierarchy:
@@ -36,7 +107,7 @@ Files/<data_product_identifier>/<dataset_name>/raw/<load_timestamp_safe>/
 ### Path Components
 
 - **`data_product_identifier`** — Source system or source-aligned product ID
-  - Examples: `frankfurter_api`, `oracle_ebs_finland`
+  - Examples: `exchange_rates_api`, `oracle_ebs_finland`
   - Use snake_case, descriptive names
   
 - **`dataset_name`** — Logical dataset within that source
@@ -61,15 +132,15 @@ Files/<data_product_identifier>/<dataset_name>/raw/<load_timestamp_safe>/
 2. **change_history/** — Deduplicated, versioned Delta table ("silver") created by lakehouse_toolbelt, easier to consume
    - Both live in the same lakehouse because they represent the same source data, just optimized for different purposes
 
-**Source-aligned data product (Frankfurter API) - With lakehouse_toolbelt CDC**:
+**Source-aligned data product (exchange-rate API) - With lakehouse_toolbelt CDC**:
 ```
-ws_extract_dev/lh_frankfurter_api/
-├── Files/frankfurter_api/exchange_rates/
+ws_extract_dev/lh_exchange_rates_api/
+├── Files/exchange_rates_api/exchange_rates/
 │   ├── raw/                                     ← "Bronze": immutable source files, minimal transformations
 │   │   ├── 20260327T081530Z/rates.json          ← Timestamped batch
 │   │   └── 20260408T110245Z/rates.json          ← Later extraction
 │   └── change_history/                          ← "Silver": deduped, versioned Delta (lakehouse_toolbelt)
-├── Files/frankfurter_api/currencies/
+├── Files/exchange_rates_api/currencies/
 │   ├── raw/
 │   │   └── 20260327T081530Z/currencies.json
 │   └── change_history/
@@ -174,15 +245,15 @@ Files/<data_product_identifier>/<dataset_name>/
 
 ```
 ws_extract_dev (IT-managed, extraction-as-a-service - development)
-├── lh_frankfurter_api              ← source-aligned data product (with CDC)
-│   ├── Files/frankfurter_api/exchange_rates/
+├── lh_exchange_rates_api           ← source-aligned data product (with CDC)
+│   ├── Files/exchange_rates_api/exchange_rates/
 │   │   ├── raw/<load_timestamp_safe>/
 │   │   └── change_history/                  ← CDC versioned data
-│   ├── Files/frankfurter_api/currencies/
+│   ├── Files/exchange_rates_api/currencies/
 │   │   ├── raw/<load_timestamp_safe>/
 │   │   └── change_history/
 │   └── Tables/exchange_rates_raw            ← Optional raw Delta table
-├── nb_extract_frankfurter_api
+├── nb_extract_exchange_rates_api
 ├── lh_oracle_ebs_finland           ← source-aligned data product (with CDC)
 │   ├── Files/oracle_ebs_finland/invoice_headers/
 │   │   ├── raw/<load_timestamp_safe>/
@@ -196,7 +267,7 @@ ws_extract_dev (IT-managed, extraction-as-a-service - development)
 
 ws_finance_dev (business-domain - development)
 ├── lh_shortcuts                    ← shortcuts-only lakehouse
-│   └── Shortcuts → ws_extract_dev/lh_frankfurter_api
+│   └── Shortcuts → ws_extract_dev/lh_exchange_rates_api
 │                   ws_extract_dev/lh_oracle_ebs_finland
 ├── lh_currency_exchange_rates      ← business data product
 │   └── Tables/currency_exchange_rates
@@ -233,14 +304,14 @@ ws_finance_dev (business-domain - development)
 
 ### Lakehouses
 - **Source-aligned products**: `lh_<data_product_identifier>`
-  - Examples: `lh_frankfurter_api`, `lh_oracle_ebs_finland`
+  - Examples: `lh_exchange_rates_api`, `lh_oracle_ebs_finland`
 - **Business products**: `lh_<business_product_name>`
   - Examples: `lh_currency_exchange_rates`, `lh_purchase_invoices`
 - **Shortcuts container**: `lh_shortcuts` (special case, contains only shortcuts)
 
 ### Notebooks
 - **Extraction notebooks**: `nb_extract_<source_system>`
-  - Examples: `nb_extract_frankfurter_api`, `nb_extract_purchase_invoices`
+  - Examples: `nb_extract_exchange_rates_api`, `nb_extract_purchase_invoices`
 - **Business product notebooks**: `nb_<business_product_name>`
   - Examples: `nb_currency_exchange_rates`, `nb_purchase_invoices`
 
@@ -266,8 +337,8 @@ ws_finance_dev (business-domain - development)
 ### Shortcut Setup
 1. In business workspace, create `lh_shortcuts` lakehouse
 2. Create OneLake shortcuts pointing to each needed source product table:
-   - `exchange_rates_raw` → shortcut from `ws_extract_dev/lh_frankfurter_api/Tables/exchange_rates_raw`
-   - `currencies_raw` → shortcut from `ws_extract_dev/lh_frankfurter_api/Tables/currencies_raw`
+   - `exchange_rates_raw` → shortcut from `ws_extract_dev/lh_exchange_rates_api/Tables/exchange_rates_raw`
+   - `currencies_raw` → shortcut from `ws_extract_dev/lh_exchange_rates_api/Tables/currencies_raw`
    - etc.
 3. Business notebooks read from `lh_shortcuts` via cross-lakehouse reference
 
@@ -342,7 +413,7 @@ When using `lakehouse_toolbelt` for CDC versioning, additional metadata columns 
 
 ### Use for:
 - ✅ Source-aligned data products (extraction from external systems)
-- ✅ Business-modeled data products (domain-specific transformations)
+- ✅ Consumer-aligned data products — Foundational, Business, Analytical (see above)
 - ✅ Multi-workspace architectures (extraction + business domains)
 - ✅ Projects requiring clear data lineage
 - ✅ Scenarios with different access control per product

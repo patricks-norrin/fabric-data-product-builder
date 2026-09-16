@@ -1,0 +1,6 @@
+{
+  "version": "2.0",
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/platform/platformProperties.json",
+  "metadata": { "type": "Notebook", "displayName": "{{NOTEBOOK_NAME}}" },
+  "config": { "logicalId": "{{LOGICAL_ID}}" }
+}

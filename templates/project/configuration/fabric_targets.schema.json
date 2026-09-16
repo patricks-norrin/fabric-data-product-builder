@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://norrin.example/schemas/fabric-targets.schema.json",
+  "title": "Norrin Fabric deployment targets",
+  "type": "object",
+  "required": ["active_target", "default_workspace", "targets"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "active_target": {
+      "type": "string",
+      "minLength": 1
+    },
+    "default_workspace": {
+      "type": "string",
+      "pattern": "^ws_[a-z0-9]+(?:_[a-z0-9]+)*$"
+    },
+    "targets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["workspaces"],
+        "properties": {
+          "workspaces": {
+            "type": "object",
+            "minProperties": 1,
+            "patternProperties": {
+              "^ws_[a-z0-9]+(?:_[a-z0-9]+)*$": {
+                "type": "object",
+                "required": ["workspace_name"],
+                "properties": {
+                  "workspace_name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "environment": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "id": { "type": "string" },
+                      "workspace_id": { "type": "string" }
+                    },
+                    "additionalProperties": false
+                  },
+                  "notes": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

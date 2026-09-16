@@ -9,9 +9,15 @@
   "project_configuration_path": "Files/configuration/data_product/project_configuration/project_configuration.json",
   "extract_notebook": "nb_extract_{data_product_identifier}",
   "cdc_notebook": "nb_cdc_{data_product_identifier}",
+  "_note_modeling_and_dp_notebook": "Proposed, not yet built by this toolpack (Foundational/Business tiers)",
+  "modeling_notebook": "nb_model_{data_product_identifier}",
+  "dp_notebook": "nb_dp_{data_product_identifier}",
   "pipeline": "pl_{data_product_identifier}",
   "raw_path": "Files/{data_product_identifier}/{dataset_name}/raw/{batch_id}",
   "batch_id": "^[0-9]{8}T[0-9]{6}Z$",
   "change_history_table": "Tables/{data_product_identifier}/{dataset_name}",
-  "reserved_columns_before_dpmeta": ["dpmeta_input_file_name", "dpmeta_source_system_id"]
+  "reserved_columns_before_dpmeta": [
+    "dpmeta_input_file_name",
+    "dpmeta_source_system_id"
+  ]
 }

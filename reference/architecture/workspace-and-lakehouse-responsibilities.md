@@ -1,9 +1,29 @@
 # Workspaces, lakehouses and their responsibilities
 
 `ws_extract` is *extraction as a service*: IT lands every source system as a source-aligned data product
-(raw + change history) and grants access per product lakehouse. Business-domain workspaces consume via
-shortcuts and model business data products. Each data product's items live in a workspace folder named
-`<data_product_identifier>`; `lh_workspace_shared_resources` (configuration) stays at the workspace root.
+(raw + change history) and grants access per product lakehouse. Business-domain workspaces consume
+source-aligned products via shortcuts and build consumer-aligned data products (Foundational, Business,
+Analytical — see `data-product-architecture.md` for the full definitions and ownership/access model).
+
+## Where Each Item Lives
+
+Every data product, regardless of tier (source-aligned, foundational, business, analytical), keeps its
+lakehouse and notebooks together in one workspace folder named `<data_product_identifier>`:
+`lh_<data_product_identifier>`, `nb_extract_<id>`/`nb_cdc_<id>` (source-aligned) or `nb_model_<id>`
+(foundational, proposed — not yet used by this toolpack) or `nb_dp_<id>` (business), and (when built) `pl_<id>`
+or a semantic model for that same product. They share that product's lifecycle: created, versioned and
+eventually retired together.
+
+Two lakehouses are the exception — they are **workspace-wide infrastructure**, not owned by any single data
+product, and stay at the **workspace root**, never inside a product folder:
+
+- **`lh_workspace_shared_resources`** — a hard prerequisite in any workspace running `lakehouse_toolbelt`
+  (`DataProduct(...)` raises an exception if it's missing; see
+  `reference/lakehouse_toolbelt/docs/environment-prerequisites-and-conventions.md`). Its scope today is
+  exactly `Files/configuration/data_product/*` — one subfolder per data product's config plus
+  `project_configuration/project_configuration.json`. Nothing else is defined to live there.
+- **`lh_shortcuts`** — a **business-domain-only** container (see below); an extraction workspace does not need
+  one, since it produces source-aligned products rather than consuming them.
 
 ## Workspace Design Patterns
 
@@ -11,7 +31,7 @@ shortcuts and model business data products. Each data product's items live in a 
 
 ```
 ws_extract_dev/                    ← Source-aligned products
-├── lh_frankfurter_api
+├── lh_exchange_rates_api
 ├── lh_oracle_ebs_finland
 └── lh_salesforce
 
@@ -32,7 +52,7 @@ ws_sales_dev/                      ← Business domain
 
 ```
 ws_data_platform_dev/
-├── lh_frankfurter_api             ← Source-aligned
+├── lh_exchange_rates_api          ← Source-aligned
 ├── lh_oracle_ebs_finland
 ├── lh_finance_reporting           ← Business domain
 └── lh_sales_analytics
@@ -63,12 +83,12 @@ Multiple business domains?
 - Feature branches: `{issue_number}_ws_{domain}_{env}` — e.g., `12345_ws_extract_dev`
 
 ### Lakehouses
-- Source-aligned: `lh_{data_product_identifier}` — e.g., `lh_frankfurter_api`
+- Source-aligned: `lh_{data_product_identifier}` — e.g., `lh_exchange_rates_api`
 - Business: `lh_{business_product_name}` — e.g., `lh_finance_reporting`
 - Shortcuts container: `lh_shortcuts`
 
 ### Notebooks
-- Extraction: `nb_extract_{source_system}` — e.g., `nb_extract_frankfurter_api`
+- Extraction: `nb_extract_{source_system}` — e.g., `nb_extract_exchange_rates_api`
 - Business: `nb_dp_{product_name}` — e.g., `nb_dp_currency_exchange_rates`
 
 ### Tables
@@ -94,7 +114,7 @@ Business lakehouse shortcuts to source product's `change_history/` folder:
 
 ```
 ws_finance_dev/lh_shortcuts/
-├── exchange_rates → ws_extract_dev/lh_frankfurter_api/.../change_history/
+├── exchange_rates → ws_extract_dev/lh_exchange_rates_api/.../change_history/
 ├── invoices → ws_extract_dev/lh_oracle_ebs_finland/.../change_history/
 └── customers → ws_extract_dev/lh_salesforce/.../change_history/
 ```
@@ -179,7 +199,7 @@ rg-fabric-{env}/
 Fabric Tenant/
 ├── ws_{domain}_{env}/
 │   ├── lh_{source_system}        ← Source-aligned
-│   └── lh_{business_model}       ← Business-modeled (shortcuts)
+│   └── lh_{concept}              ← Consumer-aligned (Foundational/Business, shortcuts)
 ```
 
 ### Enterprise Pattern (Multi-Domain)

@@ -1,20 +1,41 @@
 # norrin-fabric-data-product-toolpack
 
-Tooling, instructions and templates that let a coding agent (Claude Code, GitHub Copilot CLI) build a
+Harness-neutral tooling, instructions and templates that let a coding agent build a
 **source-aligned data product** in Microsoft Fabric end to end: data product configuration, lakehouse,
 extract and CDC notebooks, raw files and change-history tables — following the Norrin architecture and
 the `lakehouse_toolbelt` contract.
 
+The toolpack can be installed once and used from GitHub Copilot CLI, GitHub Copilot in VS Code, Claude Code,
+or Cursor sessions opened in any consuming project. Scripts resolve that project's Git root (or cwd outside
+Git); generated files and temporary state never belong to the installed toolpack.
+
 Single execution surface: the Microsoft Fabric CLI (`fab`). One login per customer tenant.
 
-- `CLAUDE.md` — non-negotiable rules the agent always sees (also `AGENTS.md`)
-- `.claude/agents/nor-data-product-builder.md` — the orchestrating agent
-- `.claude/skills/nor-*` — procedures with scripts (environment check, config, notebooks, Livy, publish/run)
+- `agents/nor-data-product-builder.agent.md` — canonical orchestrating agent
+- `skills/nor-*` — canonical procedures with scripts (environment check, config, notebooks, Livy, publish/run)
+- `.claude-plugin/`, `.cursor-plugin/` — host registration metadata only
 - `reference/architecture/` — the Norrin data product architecture (single source of truth)
 - `reference/lakehouse_toolbelt/` — vendored toolbelt docs and examples (runtime contract)
-- `configuration/` — target workspace and data product configurations (JSON)
-- `notebooks/<data_product_identifier>/` — notebook definitions in Fabric `.py` format
+- `templates/project/` — generic files a consuming project can copy and customize
+- `scripts/` — harness-neutral project/target resolution and Fabric helpers
+- `tests/` — fixture-based tests that prove outputs stay outside the installed toolpack
 - `docs/` — how this repo is structured, why each piece exists, conventions and decisions made building it
 
-Start: `fab auth login --tenant <tenant-id>`, edit `configuration/target_workspace.json`, then ask the agent:
+This repository contains no generated notebooks or deployable workspace package. Those belong in a separate
+consuming project, for example:
+
+```text
+project/
+├── configuration/
+│   ├── fabric_targets.json
+│   └── data_product/
+├── ws_extract/
+├── ws_procurement/
+└── .scratch/
+```
+
+The workspace names are examples, not reserved names. Each `ws_<name>` package can be deployed to the mapped
+dev, test, prod, or feature workspace through Fabric Git integration or `fabric-cicd`.
+
+Start: `fab auth login --tenant <tenant-id>`, configure `configuration/fabric_targets.json`, then ask the agent:
 "Build the source-aligned data product for <API>".

@@ -1,9 +1,0 @@
-{
-  "workspace_name": "ws_extract_agent_test",
-  "environment": {
-    "name": "env_academy",
-    "id": "8c1fe0ba-7b56-4325-9008-4e2b10231bd1",
-    "workspace_id": "f63fb43d-614b-4f18-bee9-786320230d2b"
-  },
-  "notes": "Environment must live in the SAME workspace as the notebooks (cross-workspace attach breaks Spark session acquisition); it provides the lakehouse_toolbelt wheel. Copied from ws_academy_shared_resources with fab cp."
-}

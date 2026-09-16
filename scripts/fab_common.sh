@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Shared helpers for fab-based scripts. Source this file.
 set -o pipefail
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TARGET_FILE="$REPO_ROOT/configuration/target_workspace.json"
+
+TOOLPACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CONTEXT_SCRIPT="$TOOLPACK_ROOT/scripts/norrin_context.py"
+CONTEXT_WORKSPACE=""
+CONTEXT_TARGET=""
+CONTEXT_PROJECT_ROOT=""
+CONTEXT_ARGS=()
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 info() { echo "• $*"; }
@@ -13,6 +18,38 @@ FAILURES=0
 
 strip_cr() { tr -d '\r'; }
 
+parse_context_args() {
+  CONTEXT_ARGS=()
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --workspace|-w)
+        [ "$#" -ge 2 ] || die "$1 requires a logical ws_<name>"
+        CONTEXT_WORKSPACE="$2"; shift 2 ;;
+      --target|-t)
+        [ "$#" -ge 2 ] || die "$1 requires a target profile"
+        CONTEXT_TARGET="$2"; shift 2 ;;
+      --project-root)
+        [ "$#" -ge 2 ] || die "$1 requires a directory"
+        CONTEXT_PROJECT_ROOT="$2"; shift 2 ;;
+      *)
+        CONTEXT_ARGS+=("$1"); shift ;;
+    esac
+  done
+}
+
+resolve_context() {
+  local args=(resolve --format shell)
+  [ -n "$CONTEXT_WORKSPACE" ] && args+=(--workspace "$CONTEXT_WORKSPACE")
+  [ -n "$CONTEXT_TARGET" ] && args+=(--target "$CONTEXT_TARGET")
+  [ -n "$CONTEXT_PROJECT_ROOT" ] && args+=(--project-root "$CONTEXT_PROJECT_ROOT")
+  local resolved
+  resolved=$(python3 "$CONTEXT_SCRIPT" "${args[@]}") || exit 1
+  eval "$resolved"
+  REPO_ROOT="$PROJECT_ROOT"
+  WORKSPACE_PATH="$WORKSPACE_NAME.Workspace"
+  mkdir -p "$SCRATCH_DIR"
+}
+
 # fab api wrapper: fab_api <endpoint> [fab api args...]  -> stdout without CR
 fab_api() { fab api "$@" 2>/dev/null | strip_cr; }
 
@@ -20,12 +57,7 @@ fab_api() { fab api "$@" 2>/dev/null | strip_cr; }
 fab_api_q() { local q="$1"; shift; fab api "$@" -q "$q" 2>/dev/null | strip_cr | sed 's/^"//;s/"$//'; }
 
 need_target() {
-  [ -f "$TARGET_FILE" ] || die "missing $TARGET_FILE"
-  WORKSPACE_NAME=$(python3 -c "import json;print(json.load(open('$TARGET_FILE'))['workspace_name'])")
-  ENVIRONMENT_ID=$(python3 -c "import json;print(json.load(open('$TARGET_FILE')).get('environment',{}).get('id',''))")
-  ENVIRONMENT_WORKSPACE_ID=$(python3 -c "import json;print(json.load(open('$TARGET_FILE')).get('environment',{}).get('workspace_id',''))")
-  ENVIRONMENT_NAME=$(python3 -c "import json;print(json.load(open('$TARGET_FILE')).get('environment',{}).get('name',''))")
-  WORKSPACE_PATH="$WORKSPACE_NAME.Workspace"
+  resolve_context
   WORKSPACE_ID=$(fab get "$WORKSPACE_PATH" -q id 2>/dev/null | strip_cr | tr -d '" ')
   [[ "$WORKSPACE_ID" =~ ^[0-9a-f-]{36}$ ]] || die "workspace '$WORKSPACE_NAME' not found (fab auth status?)"
 }

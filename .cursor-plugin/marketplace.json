@@ -1,0 +1,16 @@
+{
+  "name": "norrin-fabric-plugins",
+  "owner": {
+    "name": "Norrin"
+  },
+  "metadata": {
+    "description": "Norrin internal plugins for Microsoft Fabric data product development."
+  },
+  "plugins": [
+    {
+      "name": "norrin-fabric-data-product-toolpack",
+      "source": ".",
+      "description": "Build source-aligned Fabric data products end to end: config, lakehouse, extract+CDC notebooks, raw files and change-history tables, using fab CLI + lakehouse_toolbelt."
+    }
+  ]
+}
