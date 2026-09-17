@@ -25,10 +25,10 @@ you to implement.
 - Cells are rerunnable: same inputs → same files/rows (raw is per `batch_id`; CDC upsert is idempotent).
 - Each code cell ends by printing what it produced (paths, byte sizes, row counts). No validation logic, no exploration — that belongs elsewhere.
 - Works in both Livy and the notebook UI: no `display()`, no `%pip`, no `%run`, no `/lakehouse/default/` mounts; `spark.sql()` instead of `%%sql`.
-- Never transform before landing. Never hardcode ids, paths or dates: everything comes from `DataProduct(...)` and the parameters cell.
+- Never transform before landing. Never hardcode Fabric ids or OneLake paths. Prefer `f"{source.base_url}/{dataset.dataset_name}"` when the dataset name is the endpoint. Keep a stable base URL in configuration; add a URL template there only when request path or query values vary between calls. Keep template values, credentials lookup, pagination, formats, dates, and source assumptions in the source-specific extraction cells.
 
 ## Writing the source-specific extract cells
-Inputs you have: `dataset.source_configuration.base_url`, `.relative_url_template`, `.endpoint_query_parameters` (+ project extras `response_format`, `incremental_strategy`, `notes`) and the helper `land_payload(dataset, file_name, text)`.
+Inputs you have: `dataset.source_configuration.base_url`, an optional `.relative_url_template`, the notebook parameters, and the helper `land_payload(dataset, file_name, text)`. For a simple endpoint, use `f"{source.base_url}/{dataset.dataset_name}"`; otherwise build the template-value dictionary and format `source.relative_url_template`. Keep authentication, request parameters, response format, pagination, and date-window logic in each source-specific cell.
 Patterns:
 - **Time series API** (`/entities?from=&to=`): `start_date = last loaded date (dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()) or initial_load_start_date`; iterate chunks of `max_days_per_request`; request with the format header (`Accept: application/x-ndjson` for streaming); land one file per chunk `<dataset>_<from>_<to>.<ext>`.
 - **Reference/snapshot endpoint** (`/reference-values`): one GET, land `<dataset>.json` each run; CDC versions changes.
