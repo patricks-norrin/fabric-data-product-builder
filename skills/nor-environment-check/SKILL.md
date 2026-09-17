@@ -28,6 +28,7 @@ overridden. Prints `PASS/WARN/FAIL` lines and exits non-zero on any FAIL.
 - `FAIL az` (missing or `< 2.50.0`) → Livy cannot be trusted; ask the user to upgrade Azure CLI
   (`https://aka.ms/install-azure-cli`). Continue only if they explicitly accept no Livy loop.
 - `FAIL auth` → ask the user to run `fab auth login --tenant <id>` (browser); never handle secrets.
+  Do **not** run `fab auth status` yourself — it prints tokens. Trust this script's PASS/FAIL line.
 - `FAIL capacity` (Paused) → stop; the user must resume the capacity. Never start/stop capacities yourself.
 - `WARN pool` (SKU ≤ F4 with Starter Pool) → default pool needs Small nodes or jobs fail with `SparkSettingsComputeExceedsPoolLimit`; ask the user to adjust workspace Spark settings.
 - `FAIL shared lakehouse` → the shared lakehouse could not be created or verified; stop and report the Fabric error.

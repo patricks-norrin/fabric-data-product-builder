@@ -36,7 +36,15 @@ fi
 require_cli az "$MIN_AZ" az || true
 
 echo "== fab"
-if fab auth status 2>/dev/null | strip_cr | grep -q "Logged In: True"; then pass "auth: $(fab auth status 2>/dev/null | strip_cr | grep -E 'Account|Tenant' | tr '\n' ' ')"; else fail "auth: not logged in (fab auth login --tenant <id>)"; exit 1; fi
+# Capture stdout+stderr; ignore fab's exit code (pipefail would treat a logged-in
+# non-zero as failure). Never print Token lines — `fab auth status` includes them.
+AUTH=$(set +o pipefail; fab auth status 2>&1 | strip_cr)
+if printf '%s\n' "$AUTH" | python3 "$VERSION_HELPER" fab_logged_in; then
+  pass "auth: $(printf '%s\n' "$AUTH" | grep -E '^(Account|Tenant ID):' | tr '\n' ' ')"
+else
+  fail "auth: not logged in (fab auth login --tenant <id>)"
+  echo "== result: $FAILURES failure(s)"; exit 1
+fi
 need_target
 pass "workspace: $WORKSPACE_NAME ($WORKSPACE_ID)"
 
