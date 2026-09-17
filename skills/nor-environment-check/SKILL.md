@@ -23,8 +23,10 @@ If `lh_workspace_shared_resources` is missing, the script creates it at the targ
 The local probe verifies the process executing the preflight can read and write the consuming project; it
 cannot inspect VS Code/Copilot tool-approval policy. A host may still ask the user to approve an individual
 terminal or file-edit action. Before the first mutation, the builder requests approval for only the planned
-command families and project directories; it must not request unrestricted shell, home-directory, toolpack,
-or tenant-wide access. Treat a denied approval as a blocker and report it rather than retrying.
+command families and project directories; that explanation is not an approval grant. When the host presents
+a repo-scoped persistent option for the command family, the user must choose it themselves. The builder must
+not request unrestricted shell, home-directory, toolpack, or tenant-wide access. Treat a denied approval as
+a blocker and report it rather than retrying.
 
 Reads `configuration/fabric_targets.json`, using its active target and default logical workspace unless
 overridden. A clean run prints one summary line. A run needing review prints one consolidated report with

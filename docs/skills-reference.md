@@ -39,9 +39,11 @@ the data product logic. Running one script first turns a confusing mid-build fai
 line before any Fabric object is touched.
 
 **Inputs:** `configuration/fabric_targets.json`; optional `<data_product_identifier>`, `--workspace`, and
-`--target` arguments. Before the first mutation, the builder asks once for a bounded host approval: the
+`--target` arguments. Before the first mutation, the builder states the bounded host-approval boundary: the
 planned command families and local writes under `configuration/`, `ws_<name>/`, and `.scratch/`, plus Fabric
-writes only in the selected workspace. It must not request a permanent blanket whitelist.
+writes only in the selected workspace. The user must choose the host's repo-scoped persistent approval when
+it appears; conversational confirmation cannot grant it. The builder must not request a permanent blanket
+whitelist.
 **Outputs:** one success line when no review is needed; otherwise one consolidated report of blockers,
 acknowledgments, recommendations, skipped checks, and passed checks. Non-zero exit on blockers.
 **Calls:** `scripts/check_environment.sh` → sources `scripts/fab_common.sh` → `fab`, `az account get-access-token`.
