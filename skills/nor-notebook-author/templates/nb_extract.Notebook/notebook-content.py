@@ -104,31 +104,6 @@ print(f"data product: {data_product.id} | datasets: {list(data_product.datasets)
 # META   "language_group": "synapse_pyspark"
 # META }
 
-# MARKDOWN ********************
-
-# ## Resolve extraction start timestamps
-#
-# The user supplied `initial_load_start_date` after reviewing the source's historical availability. It is used only
-# on a first run, when no successful Delta change-history load exists. On later runs, each dataset uses the actual
-# `dpmeta_loaded_to_dataplatform` timestamp from its Delta table. Record the source-specific reason for the chosen
-# initial date here before running this notebook.
-
-# CELL ********************
-
-extraction_start_timestamps = {}
-for dataset_name, dataset in data_product.datasets.items():
-    dataset.refresh_delta_table_state()
-    delta_timestamp = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
-    extraction_start_timestamps[dataset_name] = delta_timestamp or initial_load_start_date
-    print(f"{dataset_name}: extraction start = {extraction_start_timestamps[dataset_name]}")
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
 {{SOURCE_SPECIFIC_CELLS}}
 # MARKDOWN ********************
 

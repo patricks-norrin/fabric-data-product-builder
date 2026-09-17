@@ -16,10 +16,16 @@ case "$CMD" in
     pass "published $NB ($ID) in folder $DP" ;;
   run)
     ID=$(nb_id); [ -n "$ID" ] || die "notebook $NB not published"
+    record_run_event job_requested "notebook_id=$ID" "notebook=$NB" "data_product=$DP"
     info "running $NB (sync)"; set +e; fab job run "$ITEM" "$@" 2>&1 | strip_cr | grep -v '^\s*$' | tail -3; RC=${PIPESTATUS[0]}; set -e
     JID=$(fab_api_q "text.value[0].id" "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances")
     fab_api "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances/$JID" -q "text.{status:status,start:startTimeUtc,end:endTimeUtc,failureReason:failureReason.message}"
-    STATUS=$(fab_api_q "text.status" "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances/$JID"); [ "$STATUS" = "Completed" ] ;;
+    STATUS=$(fab_api_q "text.status" "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances/$JID")
+    START=$(fab_api_q "text.startTimeUtc" "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances/$JID")
+    END=$(fab_api_q "text.endTimeUtc" "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances/$JID")
+    FAILURE=$(fab_api_q "text.failureReason.message" "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances/$JID")
+    record_run_event job_finished "job_id=$JID" "notebook_id=$ID" "notebook=$NB" "status=$STATUS" "start_utc=$START" "end_utc=$END" "failure_reason=$FAILURE" "command_exit_code=$RC"
+    [ "$STATUS" = "Completed" ] ;;
   runs) ID=$(nb_id); fab_api "workspaces/$WORKSPACE_ID/items/$ID/jobs/instances" -q "text.value[:5].{id:id,status:status,start:startTimeUtc,end:endTimeUtc}" ;;
   export)
     OUT="$SCRATCH_DIR/export/$DP"; rm -rf "$OUT"; mkdir -p "$OUT"; fab export "$ITEM" -o "$OUT" --format .py -f >/dev/null 2>&1 || die "export failed"

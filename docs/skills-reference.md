@@ -116,14 +116,14 @@ notebook .py cells or ad-hoc PySpark/SQL statements, read outputs and tracebacks
 then close the session. Use whenever you need to see what a cell actually produces."
 
 **Reason to exist:** this is the answer to "how does an agent without a VS Code UI get cell-level, human-
-readable feedback while developing a notebook." No exit-value or persisted-report channel proved reliable
-(see decision log); Livy statement output is the only channel that actually shows stdout, `df.show()` output
+readable feedback while developing a notebook." Livy statement output is the only channel that actually shows stdout, `df.show()` output
 and Python tracebacks per cell, in order, with state persisting between cells like a real notebook session.
 
 **Inputs:** a lakehouse name (session target); a `notebook-content.py` file and a cell selector (`all` or
 comma-separated indices) for `run-cells`; arbitrary code for ad-hoc `statement`.
-**Outputs:** per-cell stdout/tracebacks printed to the terminal; extract batch evidence, CDC table evidence,
-and session state in `.scratch/<ws_name>/livy/livy_session.json` (gitignored — session-local, not repo state).
+**Outputs:** per-cell stdout/tracebacks printed to the terminal; session state in
+`.scratch/<ws_name>/livy/livy_session.json`; and append-only session lifecycle/cell-run outcomes in
+`.scratch/<ws_name>/operational_manifest.jsonl` (both gitignored).
 **Calls:** `scripts/livy_session.sh` (sources `fab_common.sh` only for id lookups — the session itself is
 created and driven with `az account get-access-token` + `curl`, **not** `fab api`; see conventions doc for
 why); `scripts/notebook_cells.py` (parses `# CELL`/`# PARAMETERS CELL`/`# MARKDOWN`/`# METADATA` markers into
@@ -137,9 +137,10 @@ pip-installs the toolbelt wheel staged at `lh_workspace_shared_resources/Files/l
 `onelake_access: True/FAILED` as an assertion, not by decoding token claims (see decision log — this was a
 direct response to a false-positive safety flag on the earlier token-introspection approach).
 
-**Development loop:** reuse a session inside each work phase. Develop extract first and retain a completed raw
-`batch_id`; develop CDC against that fixed batch; then prove the real ordered extract → CDC integration from a
-fresh session. High Concurrency mode is intentionally unsupported because extract and CDC have a batch
+**Development loop:** reuse a session inside each work phase. Begin with a small source-specific sample,
+develop extract and retain its completed raw `batch_id`, then develop CDC against that fixed batch. Widen the
+source-specific bound only after both steps pass, then prove the intended ordered extract → CDC integration
+from a fresh session. High Concurrency mode is intentionally unsupported because extract and CDC have a batch
 dependency and shared-session diagnostics aggregate evidence across notebooks.
 
 ---
@@ -160,7 +161,8 @@ only place `fab import`/`fab job run` are called.
 arguments (parameters, timeout).
 **Outputs:** the notebook published into `<workspace>/<id>.Folder/<notebook>.Notebook`; job status + full
 `failureReason` (no exit value is exposed by the Fabric API — verified, see conventions doc) printed to stdout;
-`export` mode diffs the remote definition against the local file.
+job lifecycle details appended to `.scratch/<ws_name>/operational_manifest.jsonl`; `export` mode diffs the
+remote definition against the local file.
 **Calls:** `scripts/run_notebook_job.sh` → `fab_common.sh` → `fab import`/`fab job run`/`fab export`/`fab api
 .../jobs/instances/<id>`.
 

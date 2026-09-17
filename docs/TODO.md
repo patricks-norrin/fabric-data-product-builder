@@ -73,9 +73,9 @@ CLI. Mechanics and verified-vs-assumed status are written up in `packaging-and-d
   path these tests cover.
 - [ ] **Re-prove extract + CDC after the restructure.** Last verified 2026-09-11, before the worktree
   restructure and multi-harness path abstraction. Until this is re-run, the pack is published but unproven.
-- [ ] **Bump `version` on every publish, and add it to the `marketplace.json` plugin entries.** The version
-  currently only lives in `plugin.json`, and `copilot plugin update` keys off version changes — without a bump
-  each push, installed copies drift silently.
+- [ ] **Enforce synchronized versions at release time.** Both plugin manifests and both marketplace entries
+  currently agree on `1.0.10`. Add one focused check that fails when they
+  differ, plus a documented bump-before-publish step; current correctness is manual, not enforced.
 - [ ] **Generate `.cursor-plugin/` from `.claude-plugin/`** (or the reverse) in a script. They are
   hand-maintained near-duplicates today and will diverge.
 - [ ] Test the `.claude-plugin/` and `.cursor-plugin/` manifests in Claude Code and Cursor. Only Copilot CLI
@@ -88,40 +88,37 @@ CLI. Mechanics and verified-vs-assumed status are written up in `packaging-and-d
 - [ ] `fab-bootstrap` skill (fab-cli-skills) has a working pattern for install + PATH + login on Windows/macOS —
   reference when writing the above.
 
-## Precedence — Norrin's conventions are not ambient, Microsoft's are
+## Plugin self-containment
 
-The restructure deleted the root `AGENTS.md` and `CLAUDE.md`, so nothing asserts Norrin's conventions until its
-agent or a `nor-` skill is explicitly invoked. `fabric-skills` meanwhile ships always-applied rules that push
-`az rest` as the control plane and Bronze/Silver/Gold as the architecture from the first token. See
-`packaging-and-distribution.md` and `ms-skills-fit-for-norrin.md`.
+Microsoft Fabric skills are available only on the development machine. The runner image receives this entire
+Norrin toolpack through `plugin install`; `fab`, `az`, Python, and Git remain external runtime prerequisites and
+will eventually be managed by the devcontainer. Generated ambient precedence files and Microsoft-skill routing
+rules are therefore not production requirements.
 
-- [ ] **Author a single precedence source and generate `AGENTS.md`, `CLAUDE.md` and `.cursorrules` from it.**
-  Minimum content: `fab` is the control plane, one source-aligned product is one schema-enabled lakehouse, no
-  medallion layering, delegate to `nor-` skills first.
-- [ ] Delete or rename the stale user-level `~/.copilot/agents/norrin_fabric_data_engineering.agent.md`.
-- [ ] Add skill-disambiguation lines to each `nor-` description so the router picks Norrin's skill over a
-  same-shaped Microsoft one (e.g. `nor-livy-session` vs. `spark-cli`).
-- [ ] **Adopt as the acceptance test: the toolpack completes a full build with zero Microsoft skills
-  installed.** If that ever fails, a dependency leaked in.
+- [ ] **Add a clean-runner acceptance check for the installed plugin.** Verify that `plugin install` exposes
+  `nor-data-product-builder` and every referenced `nor-*` skill without Microsoft skills present, then run the
+  small-sample extract + CDC workflow. Treat any undeclared Microsoft-skill dependency as a packaging defect.
 
-## Notebook and Spark troubleshooting — the known blind spot
+## Notebook and Spark troubleshooting — implemented, needs live proof
 
-Headless `fab job run` failures currently surface as a status with no output, which is the single weakest part
-of the development loop. Microsoft's `common/SPARK-MONITORING-CORE.md` documents GA monitoring endpoints that
-close this gap and need **no active Livy session**. Endpoints below are transcribed from that reference and
-have not yet been called against a real failed run.
+`nor-spark-diagnostics` is committed and the builder loads it after a failed headless run. It provides a
+read-only evidence ladder from retained `failureReason` through Spark Advisor, bounded driver stderr, stages,
+executors, resource usage, and the Notebook Snapshot fallback. Automatic stderr retrieval was deliberately
+not added: Advisor or the retained failure can already identify the cause, and unconditional logs increase
+context.
 
-- [ ] **Spike driver stderr on a deliberately failed run.** `GET /v1/workspaces/{ws}/notebooks/{nb}/livySessions/
-  {livyId}/applications/{appId}/logs?type=driver&fileName=stderr&isDownload=true`. Use `fab api` to stay on the
-  existing `fab` auth rather than adding an `az rest` path.
-- [ ] Livy session-level log for failures that never reach an application: same shape but
-  `applications/none/logs?type=livy`. The `appId` segment is literally `none`.
-- [ ] Extend `run_notebook_job.sh` to fetch and print driver stderr automatically when a run fails, so the
-  agent sees the traceback instead of a status code.
-- [ ] Add a failure-classification note under `reference/` (OOM, shuffle, `AnalysisException`,
-  `FileNotFoundException`) attributed to `skills-for-fabric`.
-- [ ] Evaluate the Spark Advisor endpoint (`.../applications/{appId}/advice`) — may be useful for the
-  performance questions the toolpack currently cannot answer at all.
+- [ ] **Live-test `nor-spark-diagnostics` on one deliberately failed headless run.** Verify job-to-Livy/app ID
+  resolution, Advisor, driver-log metadata and bounded partial stderr while monitoring data is retained, plus
+  the Snapshot fallback after expiry. Only automate a proven stable subset afterward.
+- [ ] Add source-independent failure categories (infrastructure, runtime, data contract) to the diagnostic
+  report after the live test establishes which evidence is reliably available.
+
+## Run evidence — minimal lifecycle manifest implemented 2026-09-17
+
+Livy and headless job drivers now append their existing lifecycle facts to
+`.scratch/<ws_name>/operational_manifest.jsonl`. Keep it minimal. Add notebook-produced batch IDs, row counts,
+or payload sizes only when a concrete consumer needs them; do not parse notebook output or duplicate toolbelt
+lineage merely to enrich the manifest.
 
 ## Candidates noted, not evaluated in depth
 

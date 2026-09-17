@@ -138,3 +138,15 @@ at the end of the session per instruction #18.
 29. **Environment check promoted to Procedure step 1.** The agent's `Always` block demanded the environment
     check "immediately" while `Procedure` step 1 was "Understand the source" — two defensible orderings for a
     weaker model. The check is now step 1 and the source step is 2.
+
+## Cost-aware development and run evidence (2026-09-17)
+
+30. **Prove a small extract and CDC before widening the load.** Sample bounds remain source-specific values in
+    the extraction cell beside the reason they were chosen; the generic notebook gains no sample parameter.
+    This shortens iteration and reduces compute and data movement without imposing provider-specific rules.
+31. **Operational evidence stays minimal and local.** Livy and headless job drivers append lifecycle events to
+    `.scratch/<ws_name>/operational_manifest.jsonl`. The manifest records facts the drivers already own; it
+    does not parse notebook output or duplicate the toolbelt's data lineage.
+32. **The installed plugin is self-contained.** Microsoft skills are development-machine references, not
+    runner dependencies. The runner receives the complete Norrin agent and skills through `plugin install`;
+    external CLIs remain environment prerequisites and belong in the future devcontainer.

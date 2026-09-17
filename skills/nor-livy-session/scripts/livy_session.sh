@@ -22,10 +22,13 @@ wait_idle() {
   while :; do
     local j; j=$(session_json); local st inner msg
     st=$(echo "$j" | jq_ "d.get('state')"); inner=$(echo "$j" | jq_ "(d.get('fabricSessionStateInfo') or {}).get('state')"); msg=$(echo "$j" | jq_ "(d.get('fabricSessionStateInfo') or {}).get('errorMessage','')")
-    case "$st" in idle) echo "session idle after $(( $(date +%s)-t0 ))s"; return 0;; dead|error|killed|shutting_down|success) die "session state $st: $msg";; esac
-    case "$inner" in error|dead) die "session failed while starting: $msg";; esac
+    case "$st" in
+      idle) record_run_event livy_ready "session_id=$SID" "duration_seconds=$(( $(date +%s)-t0 ))"; echo "session idle after $(( $(date +%s)-t0 ))s"; return 0;;
+      dead|error|killed|shutting_down|success) record_run_event livy_failed "session_id=$SID" "state=$st" "reason=$msg"; die "session state $st: $msg";;
+    esac
+    case "$inner" in error|dead) record_run_event livy_failed "session_id=$SID" "state=$inner" "reason=$msg"; die "session failed while starting: $msg";; esac
     echo "  $(( $(date +%s)-t0 ))s $st ${inner:-}"; sleep 10
-    [ $(( $(date +%s)-t0 )) -gt 900 ] && die "timeout waiting for idle"
+    [ $(( $(date +%s)-t0 )) -gt 900 ] && { record_run_event livy_failed "session_id=$SID" "state=timeout"; die "timeout waiting for idle"; }
   done
 }
 submit() { # submit <kind> <codefile>
@@ -41,14 +44,17 @@ case "$CMD" in
     LH="${1:?lakehouse_name required}"; need_target; [ "${2:-}" = "--no-environment" ] && ENVIRONMENT_ID="" && ENVIRONMENT_NAME="none (wheel installed in-session)"
     LH_ID=$(item_id "$LH" Lakehouse); [ -n "$LH_ID" ] || die "lakehouse $LH not found in $WORKSPACE_NAME"
     BASE="workspaces/$WORKSPACE_ID/lakehouses/$LH_ID/livyapi/versions/2023-12-01/sessions"; BODY="$STATE_DIR/session_body.json"
+    record_run_event livy_create_requested "workspace_id=$WORKSPACE_ID" "lakehouse_id=$LH_ID" "lakehouse=$LH"
     python3 - "$BODY" "$ENVIRONMENT_ID" "$LH" <<'PY'
 import json,sys,time
 body={"name":f"nor-{sys.argv[3]}-{time.strftime('%Y%m%dT%H%M%SZ',time.gmtime())}"}
 if sys.argv[2]: body["conf"]={"spark.fabric.environmentDetails": json.dumps({"id": sys.argv[2]})}
 json.dump(body,open(sys.argv[1],"w"))
 PY
-    SID=$(livy POST "$BASE" "$BODY" | jq_ "d['id']"); [[ "$SID" =~ ^[0-9a-f-]{36}$ ]] || die "session create failed"
+    SID=$(livy POST "$BASE" "$BODY" | jq_ "d['id']")
+    [[ "$SID" =~ ^[0-9a-f-]{36}$ ]] || { record_run_event livy_create_failed "workspace_id=$WORKSPACE_ID" "lakehouse_id=$LH_ID"; die "session create failed"; }
     python3 -c "import json;json.dump({'base':'$BASE','session_id':'$SID','lakehouse':'$LH','workspace_name':'$WORKSPACE_NAME','environment':'$ENVIRONMENT_ID'},open('$STATE','w'))"
+    record_run_event livy_created "session_id=$SID" "workspace_id=$WORKSPACE_ID" "lakehouse_id=$LH_ID" "environment_id=${ENVIRONMENT_ID:-}"
     info "session $SID on $LH (environment ${ENVIRONMENT_NAME:-none})"; wait_idle
     sed "s/__WORKSPACE_NAME__/$WORKSPACE_NAME/" "$HERE/../preamble/livy_preamble.py" > "$STATE_DIR/preamble.py"; submit pyspark "$STATE_DIR/preamble.py" ;;
   status) load_state; session_json | jq_ "{'state': d.get('state'), 'inner': (d.get('fabricSessionStateInfo') or {}).get('state')}" ;;
@@ -64,7 +70,10 @@ print('\n'.join(str(i) for i in want))")
       python3 -c "
 import json; c=next(c for c in json.load(open('$STATE_DIR/cells.json')) if c['index']==$i); open('$STATE_DIR/cell.py','w',encoding='utf-8').write(c['source']); open('$STATE_DIR/cell.kind','w').write(c['kind']); print(f\"\n=== cell {c['index']} [{c['type']}/{c['kind']}] {c['title']}\")"
       if ! submit "$(cat "$STATE_DIR/cell.kind")" "$STATE_DIR/cell.py"; then RC=1; [ "$KEEP" -eq 1 ] || { echo "stopped at cell $i"; break; }; fi
-    done; exit $RC ;;
-  delete) load_state; livy DELETE "$BASE/$SID" >/dev/null; rm -f "$STATE"; echo "session $SID deleted" ;;
+    done
+    [ "$RC" -eq 0 ] && CELL_STATUS=completed || CELL_STATUS=failed
+    record_run_event cells_finished "session_id=$SID" "notebook=$NB" "selection=$SEL" "status=$CELL_STATUS"
+    exit $RC ;;
+  delete) load_state; record_run_event livy_delete_requested "session_id=$SID"; livy DELETE "$BASE/$SID" >/dev/null; record_run_event livy_deleted "session_id=$SID"; rm -f "$STATE"; echo "session $SID deleted" ;;
   *) echo "usage: livy_session.sh create <lakehouse> [--no-environment]|status|statement <code>|-f file|run-cells <nb.py> [all|N,M] [--keep-going]|delete"; exit 2 ;;
 esac

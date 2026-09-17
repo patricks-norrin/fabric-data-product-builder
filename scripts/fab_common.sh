@@ -50,6 +50,11 @@ resolve_context() {
   mkdir -p "$SCRATCH_DIR"
 }
 
+record_run_event() {
+  [ -n "${SCRATCH_DIR:-}" ] || die "cannot record run event before project context is resolved"
+  python3 "$TOOLPACK_ROOT/scripts/run_manifest.py" "$SCRATCH_DIR/operational_manifest.jsonl" "$@"
+}
+
 # fab api wrapper: fab_api <endpoint> [fab api args...]  -> stdout without CR
 fab_api() { fab api "$@" 2>/dev/null | strip_cr; }
 

@@ -9,6 +9,8 @@ Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`. All commands use
 `bash "<directory of this SKILL.md>/scripts/livy_session.sh" <command> ...`.
 Add `--workspace ws_<name>` and/or `--target <profile>` when overriding project defaults. Session state is
 kept in `<project>/.scratch/<ws_name>/livy/livy_session.json`.
+Session lifecycle and cell-run outcomes are appended to
+`<project>/.scratch/<ws_name>/operational_manifest.jsonl`; deleting a session does not delete this manifest.
 
 ## Authentication — read before the first session
 - **fab (Fabric CLI) token = control plane only.** A Livy session created with it starts, but the Spark runtime gets **no delegated identity**: `notebookutils.fs.*`, `spark.read/write` to OneLake, `SHOW SCHEMAS`, `credentials.getToken` all fail with `Auth failure … CustomTokenProvider`. Verified 2026-09-11.
