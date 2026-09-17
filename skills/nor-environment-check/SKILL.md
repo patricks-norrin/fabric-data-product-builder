@@ -1,28 +1,32 @@
 ---
 name: nor-environment-check
-description: Prerequisite check of the target Fabric workspace before building a data product - fab login, workspace, capacity state and SKU vs default Spark pool, shared resources lakehouse, project_configuration.json, optional Environment, and Livy API reachability.
+description: Prerequisite check of the target Fabric workspace before building a data product - fab and az minimum CLI versions, fab login, workspace, capacity state and SKU vs default Spark pool, shared resources lakehouse, project_configuration.json, optional Environment, and Livy API reachability.
 ---
 
 # nor-environment-check
 
 Run first in every session and whenever a `fab` command fails unexpectedly.
-`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
-searching the filesystem. Scripts resolve the consuming project from its Git root, falling back to the current
-directory outside Git.
+Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`; the script locates the toolpack from its own
+path. The consuming project is the Git root of the current directory (cwd outside Git).
 
 ```bash
-bash "$TOOLPACK_ROOT/skills/nor-environment-check/scripts/check_environment.sh"
-bash "$TOOLPACK_ROOT/skills/nor-environment-check/scripts/check_environment.sh" sample_api --workspace ws_example --target dev
+bash "<directory of this SKILL.md>/scripts/check_environment.sh"
+bash "<directory of this SKILL.md>/scripts/check_environment.sh" sample_api --workspace ws_example --target dev
 ```
 
-Run the script directly; do not inspect `fab --help` or substitute a `whoami` command. Its first
-authentication probe is `fab auth status`, and it stops before workspace calls when that probe reports no login.
+Run this installed script as-is. Do not copy it to `/tmp`, `sed` it, or substitute `fab --help` /
+`whoami`. It checks `fab >= 1.7.0` and `az >= 2.50.0` first, then `fab auth status`, and stops
+before workspace calls when the version or login probe fails.
 If `lh_workspace_shared_resources` is missing, the script creates it at the target workspace root.
 
 Reads `configuration/fabric_targets.json`, using its active target and default logical workspace unless
 overridden. Prints `PASS/WARN/FAIL` lines and exits non-zero on any FAIL.
 
 ## Interpreting results
+- `FAIL fab` (missing or `< 1.7.0`) → stop; ask the user to `pip install -U 'ms-fabric-cli>=1.7.0'`. The
+  0.1.x `fab` on some PATHs is not this CLI. Never patch the check script to match another tool's output.
+- `FAIL az` (missing or `< 2.50.0`) → Livy cannot be trusted; ask the user to upgrade Azure CLI
+  (`https://aka.ms/install-azure-cli`). Continue only if they explicitly accept no Livy loop.
 - `FAIL auth` → ask the user to run `fab auth login --tenant <id>` (browser); never handle secrets.
 - `FAIL capacity` (Paused) → stop; the user must resume the capacity. Never start/stop capacities yourself.
 - `WARN pool` (SKU ≤ F4 with Starter Pool) → default pool needs Small nodes or jobs fail with `SparkSettingsComputeExceedsPoolLimit`; ask the user to adjust workspace Spark settings.

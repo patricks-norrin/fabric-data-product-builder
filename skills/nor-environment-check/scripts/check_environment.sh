@@ -3,8 +3,37 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TOOLPACK_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$TOOLPACK_ROOT/scripts/fab_common.sh"
+VERSION_HELPER="$TOOLPACK_ROOT/scripts/cli_version.py"
+MIN_FAB="1.7.0"
+MIN_AZ="2.50.0"
 parse_context_args "$@"; set -- "${CONTEXT_ARGS[@]}"
 DP="${1:-}"
+
+require_cli() {
+  local label="$1" min="$2" cmd="$3"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    fail "$label: '$cmd' not on PATH (need >= $min)"
+    return 1
+  fi
+  local ver
+  ver=$("$cmd" --version 2>&1 | python3 "$VERSION_HELPER" extract "$label") || ver=""
+  if [ -z "$ver" ]; then
+    fail "$label: could not parse '$cmd --version' (need >= $min)"
+    return 1
+  fi
+  if python3 "$VERSION_HELPER" at_least "$min" "$ver"; then
+    pass "$label: $ver (>= $min)"
+    return 0
+  fi
+  fail "$label: $ver < $min (upgrade the CLI; do not copy or patch toolpack scripts)"
+  return 1
+}
+
+echo "== cli versions"
+if ! require_cli fab "$MIN_FAB" fab; then
+  echo "== result: $FAILURES failure(s)"; exit 1
+fi
+require_cli az "$MIN_AZ" az || true
 
 echo "== fab"
 if fab auth status 2>/dev/null | strip_cr | grep -q "Logged In: True"; then pass "auth: $(fab auth status 2>/dev/null | strip_cr | grep -E 'Account|Tenant' | tr '\n' ' ')"; else fail "auth: not logged in (fab auth login --tenant <id>)"; exit 1; fi

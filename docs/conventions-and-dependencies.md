@@ -35,8 +35,8 @@ Also agreed: every item belonging to one data product lives inside its workspace
 
 | Dependency | Used for | Notes |
 |---|---|---|
-| `fab` (Microsoft Fabric CLI, `pip install ms-fabric-cli`) | Control plane: item/folder CRUD, OneLake file copy, headless job run, REST passthrough via `fab api` | The only tool that touches Fabric for **item/file management**. Version used: 1.7.0. |
-| `az` (Azure CLI) | Minting the user token that a **Livy Spark session** needs | `fab`'s own token has no delegated OneLake identity inside the Spark runtime — see "Auth model" below. One `az login` per customer tenant; no app registration. |
+| `fab` (Microsoft Fabric CLI, `pip install ms-fabric-cli`) | Control plane: item/folder CRUD, OneLake file copy, headless job run, REST passthrough via `fab api` | The only tool that touches Fabric for **item/file management**. **Minimum 1.7.0** (`nor-environment-check` fails below that). A PATH `fab` at 0.1.x is a different binary. |
+| `az` (Azure CLI) | Minting the user token that a **Livy Spark session** needs | `fab`'s own token has no delegated OneLake identity inside the Spark runtime — see "Auth model" below. **Minimum 2.50.0**. One `az login` per customer tenant; no app registration. |
 | `lakehouse_toolbelt` (Python wheel) | The CDC/change-history contract every notebook runs against | Must be **≥ 1.0.7** (see gotchas). Vendored docs/examples in `reference/lakehouse_toolbelt/`. |
 | `python3` (stdlib only) | Config validation, notebook templating, Livy statement formatting/cell parsing | Deliberately zero third-party Python dependencies in the toolpack itself — only `fab`/`az` are external binaries. |
 | `curl` | Livy REST calls with the `az` token | `fab api` cannot be used for Livy sessions (see below). |

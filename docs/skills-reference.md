@@ -43,7 +43,7 @@ line before any Fabric object is touched.
 **Outputs:** PASS/WARN/FAIL lines to stdout; non-zero exit on any FAIL.
 **Calls:** `scripts/check_environment.sh` → sources `scripts/fab_common.sh` → `fab`, `az account get-access-token`.
 
-**Checks performed:** `fab auth status`; capacity state + SKU vs. default Spark pool (Starter Pool on F2/F4 is a
+**Checks performed:** `fab >= 1.7.0` and `az >= 2.50.0`; `fab auth status`; capacity state + SKU vs. default Spark pool (Starter Pool on F2/F4 is a
 WARN — see conventions doc); `lh_workspace_shared_resources` existence; `project_configuration.json` presence;
 Environment existence, **same-workspace-as-target** (FAIL otherwise), and toolbelt wheel version ≥ 1.0.7 (FAIL
 otherwise); `az` token availability for Livy; Livy sessions endpoint reachability; optionally the named data

@@ -5,15 +5,14 @@ description: Publish a data product notebook definition (.py) into the product f
 
 # nor-notebook-publish-and-run
 
-`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
-searching the filesystem. Add `--workspace ws_<name>` and/or `--target <profile>` to override project
-defaults.
+Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`. Add `--workspace ws_<name>` and/or
+`--target <profile>` to override project defaults.
 
 ```bash
-bash "$TOOLPACK_ROOT/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh" publish sample_api nb_extract_sample_api
-bash "$TOOLPACK_ROOT/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh" run sample_api nb_extract_sample_api -P load_mode:string=incremental --timeout 1800
-bash "$TOOLPACK_ROOT/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh" export sample_api nb_extract_sample_api --workspace ws_example --target dev
-bash "$TOOLPACK_ROOT/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh" runs sample_api nb_extract_sample_api
+bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" publish sample_api nb_extract_sample_api
+bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" run sample_api nb_extract_sample_api -P load_mode:string=incremental --timeout 1800
+bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" export sample_api nb_extract_sample_api --workspace ws_example --target dev
+bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" runs sample_api nb_extract_sample_api
 ```
 
 - `publish` imports `ws_<name>/<id>/<nb>.Notebook` into the remote `<id>.Folder` (create or update, idempotent).

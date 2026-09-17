@@ -5,10 +5,9 @@ description: Author, validate, push and provision a Norrin data product configur
 
 # nor-data-product-config
 
-`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
-searching the filesystem. Scripts resolve the consuming project from its Git root, falling back to the current
-directory outside Git. Add `--workspace ws_<name>` and/or `--target <profile>` to override
-`configuration/fabric_targets.json`.
+Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`; the scripts locate the toolpack from their own
+path. The consuming project is the Git root of the current directory (cwd outside Git). Add
+`--workspace ws_<name>` and/or `--target <profile>` to override `configuration/fabric_targets.json`.
 
 ## Authoring (from API documentation to config)
 1. Read the source documentation (or the URL the user gives) and list the **endpoints that return entities** → each becomes a dataset (`dataset_name` snake_case). Skip metadata-only endpoints unless they carry reference data worth versioning (e.g. currencies).
@@ -19,14 +18,14 @@ directory outside Git. Add `--workspace ws_<name>` and/or `--target <profile>` t
 
 ## Validate (local, no Spark)
 ```bash
-python3 "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/validate_data_product_config.py" configuration/data_product/sample_api/sample_api.json
+python3 "<directory of this SKILL.md>/scripts/validate_data_product_config.py" configuration/data_product/sample_api/sample_api.json
 ```
 Checks the same rules as the toolbelt validator (unique dataset names, allowed `source_configuration`/`publish_configuration` attributes incl. project extras) plus naming conventions and required keys.
 
 ## Push + provision
 ```bash
-bash "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/push_data_product_config.sh" sample_api
-bash "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/push_data_product_config.sh" sample_api --no-provision --workspace ws_example --target dev
+bash "<directory of this SKILL.md>/scripts/push_data_product_config.sh" sample_api
+bash "<directory of this SKILL.md>/scripts/push_data_product_config.sh" sample_api --no-provision --workspace ws_example --target dev
 ```
 Idempotent: existing items/dirs are left alone. If the shared resources lakehouse is absent, it is created at
 workspace root. Prints the OneLake path and the lakehouse id (needed for notebook default-lakehouse binding).
@@ -34,7 +33,7 @@ workspace root. Prints the OneLake path and the lakehouse id (needed for noteboo
 Stage the runtime wheel used by generated notebooks:
 
 ```bash
-bash "$TOOLPACK_ROOT/skills/nor-data-product-config/scripts/push_toolbelt_wheel.sh" \
+bash "<directory of this SKILL.md>/scripts/push_toolbelt_wheel.sh" \
 	/path/to/lakehouse_toolbelt-1.0.7-py3-none-any.whl
 ```
 

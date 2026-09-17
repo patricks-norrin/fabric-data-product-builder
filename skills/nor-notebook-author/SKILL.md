@@ -5,14 +5,13 @@ description: Author the two single-responsibility notebooks of a source-aligned 
 
 # nor-notebook-author
 
-`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
-searching the filesystem. Scripts resolve the consuming project from its Git root, falling back to the current
-directory outside Git.
+Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`; the script locates the toolpack from its own
+path. The consuming project is the Git root of the current directory (cwd outside Git).
 
 ## Render
 ```bash
-python3 "$TOOLPACK_ROOT/skills/nor-notebook-author/scripts/render_notebook.py" extract sample_api --workspace ws_example --target dev
-python3 "$TOOLPACK_ROOT/skills/nor-notebook-author/scripts/render_notebook.py" cdc sample_api --workspace ws_example --target dev
+python3 "<directory of this SKILL.md>/scripts/render_notebook.py" extract sample_api --workspace ws_example --target dev
+python3 "<directory of this SKILL.md>/scripts/render_notebook.py" cdc sample_api --workspace ws_example --target dev
 ```
 Writes `ws_<name>/<id>/nb_<kind>_<id>.Notebook/{notebook-content.py,.platform}` with workspace and
 lakehouse (`lh_<id>`) resolved via `fab`. Generated notebooks install the verified `lakehouse_toolbelt` wheel

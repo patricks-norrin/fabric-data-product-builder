@@ -5,9 +5,8 @@ description: Cell-by-cell development loop for Fabric notebooks without VS Code 
 
 # nor-livy-session
 
-`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
-searching the filesystem. All commands use
-`bash "$TOOLPACK_ROOT/skills/nor-livy-session/scripts/livy_session.sh" <command> ...`.
+Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`. All commands use
+`bash "<directory of this SKILL.md>/scripts/livy_session.sh" <command> ...`.
 Add `--workspace ws_<name>` and/or `--target <profile>` when overriding project defaults. Session state is
 kept in `<project>/.scratch/<ws_name>/livy/livy_session.json`.
 
@@ -25,7 +24,7 @@ kept in `<project>/.scratch/<ws_name>/livy/livy_session.json`.
 | `delete` | Close the session (do this when done — sessions cost capacity and time out after 20 min idle). |
 
 Cell numbering comes from
-`python3 "$TOOLPACK_ROOT/skills/nor-livy-session/scripts/notebook_cells.py" <notebook-content.py> --list`.
+`python3 "<directory of this SKILL.md>/scripts/notebook_cells.py" <notebook-content.py> --list`.
 
 ## Loop
 1. `create lh_<id>` once per work session.
