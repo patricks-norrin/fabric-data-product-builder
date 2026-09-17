@@ -46,7 +46,7 @@ resolve_context() {
   resolved=$(python3 "$CONTEXT_SCRIPT" "${args[@]}") || exit 1
   eval "$resolved"
   REPO_ROOT="$PROJECT_ROOT"
-  WORKSPACE_PATH="$WORKSPACE_NAME.Workspace"
+  WORKSPACE_PATH="/$WORKSPACE_NAME.Workspace"
   mkdir -p "$SCRATCH_DIR"
 }
 

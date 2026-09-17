@@ -14,7 +14,8 @@ need_target
 SHARED="$WORKSPACE_PATH/lh_workspace_shared_resources.Lakehouse"
 if ! fab exists "$SHARED" 2>/dev/null | strip_cr | grep -qi true; then
   info "creating lh_workspace_shared_resources at workspace root"
-  fab mkdir "$SHARED" -P enableSchemas=true >/dev/null 2>&1 || die "mkdir shared lakehouse failed"
+  CREATE_OUTPUT=$(fab mkdir "$SHARED" -P enableSchemas=true 2>&1 | strip_cr)
+  [ "$?" -eq 0 ] || die "mkdir shared lakehouse failed: $CREATE_OUTPUT"
   for i in $(seq 1 12); do
     fab exists "$SHARED" 2>/dev/null | strip_cr | grep -qi true && break
     sleep 5
@@ -36,10 +37,11 @@ fi
 if [ "$PROVISION" -eq 1 ]; then
   info "provisioning folder and lakehouse"
   FOLDER="$WORKSPACE_PATH/$DP.Folder"
-  if fab exists "$FOLDER" 2>/dev/null | strip_cr | grep -qi true; then pass "folder $DP exists"; else fab mkdir "$FOLDER" >/dev/null 2>&1 || die "mkdir folder failed"; pass "folder $DP created"; fi
+  if fab exists "$FOLDER" 2>/dev/null | strip_cr | grep -qi true; then pass "folder $DP exists"; else CREATE_OUTPUT=$(fab mkdir "$FOLDER" 2>&1 | strip_cr); [ "$?" -eq 0 ] || die "mkdir folder failed: $CREATE_OUTPUT"; pass "folder $DP created"; fi
   LH_ID=$(item_id "lh_$DP" Lakehouse)
   if [ -n "$LH_ID" ]; then pass "lakehouse lh_$DP exists ($LH_ID)"; else
-    fab mkdir "$FOLDER/lh_$DP.Lakehouse" -P enableSchemas=true >/dev/null 2>&1 || die "mkdir lakehouse failed"
+    CREATE_OUTPUT=$(fab mkdir "$FOLDER/lh_$DP.Lakehouse" -P enableSchemas=true 2>&1 | strip_cr)
+    [ "$?" -eq 0 ] || die "mkdir lakehouse failed: $CREATE_OUTPUT"
     for i in $(seq 1 12); do LH_ID=$(item_id "lh_$DP" Lakehouse); [ -n "$LH_ID" ] && break; sleep 5; done
     pass "lakehouse lh_$DP created in folder $DP ($LH_ID)"
   fi

@@ -66,7 +66,10 @@ if [ -n "$SHARED_ID" ]; then
   pass "lh_workspace_shared_resources ($SHARED_ID)"
 else
   info "lh_workspace_shared_resources missing; creating it at workspace root"
-  fab mkdir "$SHARED_PATH" -P enableSchemas=true >/dev/null 2>&1 || fail "could not create lh_workspace_shared_resources"
+  CREATE_OUTPUT=$(fab mkdir "$SHARED_PATH" -P enableSchemas=true 2>&1 | strip_cr)
+  if [ "$?" -ne 0 ]; then
+    fail "could not create lh_workspace_shared_resources: $CREATE_OUTPUT"
+  fi
   for i in $(seq 1 12); do
     SHARED_ID=$(item_id lh_workspace_shared_resources Lakehouse)
     [ -n "$SHARED_ID" ] && break

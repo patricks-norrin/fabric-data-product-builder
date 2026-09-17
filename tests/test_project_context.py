@@ -128,7 +128,7 @@ class ProjectContextTests(unittest.TestCase):
                         f"source {TOOLPACK_ROOT / 'scripts' / 'fab_common.sh'}; "
                         "parse_context_args --workspace ws_beta --target prod; "
                         "resolve_context; "
-                        "printf '%s\\n%s\\n%s\\n' \"$PROJECT_ROOT\" \"$WORKSPACE_DIR\" \"$SCRATCH_DIR\""
+                        "printf '%s\\n%s\\n%s\\n%s\\n' \"$PROJECT_ROOT\" \"$WORKSPACE_DIR\" \"$SCRATCH_DIR\" \"$WORKSPACE_PATH\""
                     ),
                 ],
                 cwd=nested,
@@ -143,6 +143,7 @@ class ProjectContextTests(unittest.TestCase):
                     str(project.resolve()),
                     str(project / "ws_beta"),
                     str(project / ".scratch" / "ws_beta"),
+                    "/ws_beta_prod.Workspace",
                 ],
             )
 
