@@ -44,38 +44,17 @@ resolved; move resolved items to `decision-log.md` instead of deleting them outr
 
 ## First-run bootstrap — no `fabric_targets.json` yet
 
-Established 2026-09-17 by reading the resolution path; nothing implemented. In an already-configured project
-the agent must proceed silently. This is only about the from-scratch case, where the first script call dies
-after `PASS auth` with a bare stderr line and no instruction on what to do next.
+Resolved 2026-09-17; see `decision-log.md` #27–29. A live agent run cleared this case on its own by writing
+the file, so the risk was improvised contents, not a hard stop. `resolve_context` now names the template and
+forbids invented workspace names and GUIDs, rejects the unedited `<environment-id>` / `<workspace-id>`
+placeholders, and `nor-environment-check/SKILL.md` documents the ask-offer-verify-derive bootstrap. The
+guardrail is deliberately documentation plus validation — no prompt-flow script was built.
 
-Intended behavior:
+Still open:
 
-1. Valid `configuration/fabric_targets.json` → resolve and continue, no prompting.
-2. File missing, or the selected target/workspace entry absent → **ask the user which physical Fabric workspace
-   to target**, then verify before writing anything: the workspace exists and the signed-in identity can reach
-   it (`fab get "<name>.Workspace" -q id`, the probe `need_target` already uses). Offer the accessible
-   workspaces from `fab ls` rather than asking for a typed name.
-3. Ask only for the choices: physical workspace, the logical `ws_<name>` key, and whether to scaffold more than
-   one target profile. Default `active_target` to `dev` with a single entry; promotion targets can wait for the
-   promotion path above.
-4. **Derive, never ask for, the Environment GUIDs** — `fab api workspaces/<ws-id>/environments` yields `id` and
-   its workspace id once the workspace is known. With no Environment, omit the block and let the existing
-   `WARN no environment configured` path stand.
-5. Write the file into the consuming project, never into the installed toolpack.
-
-Supporting fixes, independent of the above:
-
-- [ ] `resolve_context` raises a bare `missing project target configuration: <path>`, while the legacy-format
-  branch immediately below it names the template to copy. Give the from-scratch branch the same pointer to
-  `templates/project/configuration/fabric_targets.json`.
-- [ ] `nor-environment-check/SKILL.md`'s "Interpreting results" list has no row for a missing target file. Add
-  one, so the agent bootstraps instead of retrying or guessing a workspace.
 - [ ] `need_target` cannot distinguish "workspace does not exist" from "no access" from "expired token" — the
   `fab get` failure is identical in all three, which is why the message hedges with `(fab auth status?)`.
   Decide whether that is good enough before building a prompt flow on top of it.
-- [ ] Reject the template's literal `<environment-id>` / `<workspace-id>` placeholders. They are truthy, so a
-  half-edited copy passes `[ -n "$ENVIRONMENT_ID" ]` in `check_environment.sh` and gets baked into `.platform`
-  by `render_notebook.py`. A generated file avoids this; a hand-copied one does not.
 
 ## Distribution / install — partly done 2026-09-16
 

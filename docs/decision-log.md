@@ -122,3 +122,19 @@ at the end of the session per instruction #18.
 26. **Published state is explicitly unproven.** The pack installs correctly, but agent invocation, the test
     suite, and the extract + CDC loop have all not been exercised since the restructure. Recorded here so the
     publish is not mistaken for a validation. See `packaging-and-distribution.md` § Not verified.
+
+## First-run bootstrap guardrails (2026-09-17)
+
+27. **Bootstrap is guided, not scripted.** A live agent run already got through a missing
+    `configuration/fabric_targets.json` and wrote the file itself, so the failure was never a hard stop — it
+    was the agent improvising the contents. The fix is therefore a guardrail, not a prompt-flow script:
+    `resolve_context` now names the template to copy and states "Never invent a workspace name or an
+    Environment GUID", and `nor-environment-check/SKILL.md` carries the ask-offer-verify-derive procedure.
+    No new abstraction, no new state file.
+28. **Template placeholders rejected at the single resolution point.** `<environment-id>` / `<workspace-id>`
+    are truthy, so a half-edited copy passed `[ -n "$ENVIRONMENT_ID" ]` in `check_environment.sh` and was
+    baked into `.platform` by `render_notebook.py`. Validating in `resolve_context` fixes every consumer at
+    once rather than patching each script.
+29. **Environment check promoted to Procedure step 1.** The agent's `Always` block demanded the environment
+    check "immediately" while `Procedure` step 1 was "Understand the source" — two defensible orderings for a
+    weaker model. The check is now step 1 and the source step is 2.

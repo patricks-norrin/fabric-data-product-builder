@@ -112,6 +112,30 @@ class ProjectContextTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "retired single-workspace format"):
                 resolve_context(project_root=project)
 
+    def test_missing_target_file_names_the_template(self):
+        with tempfile.TemporaryDirectory() as temp:
+            project = pathlib.Path(temp)
+
+            with self.assertRaisesRegex(ValueError, "fabric_targets.json") as caught:
+                resolve_context(project_root=project)
+
+            message = str(caught.exception)
+            self.assertIn("templates/project/configuration/fabric_targets.json", message)
+            self.assertIn("Never invent", message)
+
+    def test_unedited_environment_placeholders_are_rejected(self):
+        for field, placeholder in (("id", "<environment-id>"), ("workspace_id", "<workspace-id>")):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as temp:
+                project = pathlib.Path(temp)
+                write_targets(project)
+                target_file = project / "configuration" / "fabric_targets.json"
+                config = json.loads(target_file.read_text(encoding="utf-8"))
+                config["targets"]["dev"]["workspaces"]["ws_alpha"]["environment"][field] = placeholder
+                target_file.write_text(json.dumps(config), encoding="utf-8")
+
+                with self.assertRaisesRegex(ValueError, "still the template placeholder"):
+                    resolve_context(project_root=project)
+
     def test_shell_helper_resolves_external_project(self):
         with tempfile.TemporaryDirectory() as temp:
             project = pathlib.Path(temp)
