@@ -27,11 +27,17 @@ Cell numbering comes from
 `python3 "<directory of this SKILL.md>/scripts/notebook_cells.py" <notebook-content.py> --list`.
 
 ## Loop
-1. `create lh_<id>` once per work session.
-2. `run-cells ws_<name>/<id>/nb_extract_<id>.Notebook/notebook-content.py all` → read outputs.
-3. On error: fix **that cell** in the `.py` file, `run-cells ... <n>` again (state from earlier cells persists, like a notebook).
-4. Inspect side effects with statements, e.g. `statement "print(notebookutils.fs.ls(data_product.exchange_rates.file_path_raw))"`.
-5. When all cells pass in order from a fresh session, publish with `nor-notebook-publish-and-run`.
+1. `create lh_<id>` once per work phase. Reuse that session for each cell retry; create another only when the
+	current session is unavailable, needs isolated configuration, or the user explicitly requests independent
+	parallel work.
+2. **Extract phase:** `run-cells ws_<name>/<id>/nb_extract_<id>.Notebook/notebook-content.py all` → read the
+	compact batch summary, then inspect the completed raw batch folder. Record its `batch_id`.
+3. On error: fix **that cell** in the `.py` file, `run-cells ... <n>` again (state from earlier cells persists,
+	like a notebook).
+4. **CDC phase:** run `nb_cdc_<id>` against the recorded, completed raw batch. Verify its table summary and
+	schema. Do not run CDC while the extract notebook is still writing that batch.
+5. **Integration phase:** from a fresh session, run extract and then CDC sequentially. Confirm the final raw
+	batch and change-history table before publishing with `nor-notebook-publish-and-run`.
 
 ## Livy vs notebook UI (write cells so both work)
 - No `%%sql`/`%pip`/`%run` magics in Livy: use `spark.sql(...)`; `%%sql` cells are still allowed in the file — the runner maps them to `kind: sql`.

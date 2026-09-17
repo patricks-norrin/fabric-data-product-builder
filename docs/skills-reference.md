@@ -40,11 +40,12 @@ line before any Fabric object is touched.
 
 **Inputs:** `configuration/fabric_targets.json`; optional `<data_product_identifier>`, `--workspace`, and
 `--target` arguments.
-**Outputs:** PASS/WARN/FAIL lines to stdout; non-zero exit on any FAIL.
+**Outputs:** one success line when no review is needed; otherwise one consolidated report of blockers,
+acknowledgments, recommendations, skipped checks, and passed checks. Non-zero exit on blockers.
 **Calls:** `scripts/check_environment.sh` → sources `scripts/fab_common.sh` → `fab`, `az account get-access-token`.
 
-**Checks performed:** `fab >= 1.7.0` and `az >= 2.50.0`; `fab auth status`; capacity state + SKU vs. default Spark pool (Starter Pool on F2/F4 is a
-WARN — see conventions doc); `lh_workspace_shared_resources` existence; `project_configuration.json` presence;
+**Checks performed:** `fab >= 1.7.0` and `az >= 2.50.0`; `fab auth status`; capacity state + SKU vs. default Spark pool (F2/F4 requires explicit
+acknowledgment or scaling to F8; Starter Pool adds a warning); `lh_workspace_shared_resources` existence; `project_configuration.json` presence;
 Environment existence, **same-workspace-as-target** (FAIL otherwise), and toolbelt wheel version ≥ 1.0.7 (FAIL
 otherwise); `az` token availability for Livy; Livy sessions endpoint reachability; optionally the named data
 product's lakehouse (existence + schema-enabled) and config presence.
@@ -121,9 +122,8 @@ and Python tracebacks per cell, in order, with state persisting between cells li
 
 **Inputs:** a lakehouse name (session target); a `notebook-content.py` file and a cell selector (`all` or
 comma-separated indices) for `run-cells`; arbitrary code for ad-hoc `statement`.
-**Outputs:** per-cell stdout/tracebacks printed to the terminal; session state in
-`.scratch/<ws_name>/livy/livy_session.json`
-(gitignored — session-local, not repo state).
+**Outputs:** per-cell stdout/tracebacks printed to the terminal; extract batch evidence, CDC table evidence,
+and session state in `.scratch/<ws_name>/livy/livy_session.json` (gitignored — session-local, not repo state).
 **Calls:** `scripts/livy_session.sh` (sources `fab_common.sh` only for id lookups — the session itself is
 created and driven with `az account get-access-token` + `curl`, **not** `fab api`; see conventions doc for
 why); `scripts/notebook_cells.py` (parses `# CELL`/`# PARAMETERS CELL`/`# MARKDOWN`/`# METADATA` markers into
@@ -136,6 +136,11 @@ is `None` under Livy — falls back to the workspace name the agent already know
 pip-installs the toolbelt wheel staged at `lh_workspace_shared_resources/Files/libraries/`. It also reports
 `onelake_access: True/FAILED` as an assertion, not by decoding token claims (see decision log — this was a
 direct response to a false-positive safety flag on the earlier token-introspection approach).
+
+**Development loop:** reuse a session inside each work phase. Develop extract first and retain a completed raw
+`batch_id`; develop CDC against that fixed batch; then prove the real ordered extract → CDC integration from a
+fresh session. High Concurrency mode is intentionally unsupported because extract and CDC have a batch
+dependency and shared-session diagnostics aggregate evidence across notebooks.
 
 ---
 
@@ -158,6 +163,24 @@ arguments (parameters, timeout).
 `export` mode diffs the remote definition against the local file.
 **Calls:** `scripts/run_notebook_job.sh` → `fab_common.sh` → `fab import`/`fab job run`/`fab export`/`fab api
 .../jobs/instances/<id>`.
+
+---
+
+## nor-spark-diagnostics
+
+**Description:** "Diagnose a failed, slow, or stuck Fabric notebook or Livy Spark run with read-only fab api
+calls. Use after nor-notebook-publish-and-run reports a failureReason, or when the user asks to investigate
+Spark logs, Spark Advisor findings, stages, executors, or a headless notebook run."
+
+**Reason to exist:** headless job instances retain a high-level `failureReason`, while the richer Spark
+Monitoring evidence has a short retention window and must be queried from a notebook's Livy/application IDs.
+Keeping this cookbook on demand prevents those operational details from burdening normal successful runs, while
+giving the agent a tested evidence order before it reruns a failed notebook.
+
+**Inputs:** selected target, notebook item ID, job-instance ID and, when monitoring data is still retained,
+Livy/application IDs. **Outputs:** compact diagnosis and a Notebook Snapshot URL when richer API evidence has
+expired. **Calls:** read-only `fab api` calls to job instances, Livy sessions, Spark Advisor, driver-log
+metadata, History Server jobs/stages/executors, and resource usage.
 
 ---
 
