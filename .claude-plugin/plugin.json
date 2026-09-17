@@ -1,7 +1,7 @@
 {
   "name": "norrin-fabric-data-product-toolpack",
   "description": "Build source-aligned data products in Microsoft Fabric: configuration, folder and lakehouse, extract and CDC notebooks, raw files and change-history tables.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "author": {
     "name": "Norrin"
   }

@@ -5,11 +5,12 @@ description: "Norrin architecture for Microsoft Fabric data products. Use before
 
 # Norrin data product architecture — decision rules
 
-Read the long form only when a rule below does not settle the question:
-- `reference/architecture/data-product-architecture.md` — the why (source-aligned vs consumer-aligned: Foundational/Business/Analytical, CDC default, exceptions)
-- `reference/architecture/workspace-and-lakehouse-responsibilities.md` — workspace patterns, shortcuts, metadata columns
-- `reference/architecture/naming-and-folder-conventions.md` + `conventions.json` — checkable rules
-- `reference/lakehouse_toolbelt/docs/` — runtime contract (config attributes, paths, functions)
+Read the long form only when a rule below does not settle the question. These paths are relative to this
+file's own directory, inside the installed toolpack — not to the consuming project:
+- `../../reference/architecture/data-product-architecture.md` — the why (source-aligned vs consumer-aligned: Foundational/Business/Analytical, CDC default, exceptions)
+- `../../reference/architecture/workspace-and-lakehouse-responsibilities.md` — workspace patterns, shortcuts, metadata columns
+- `../../reference/architecture/naming-and-folder-conventions.md` + `conventions.json` — checkable rules
+- `../../reference/lakehouse_toolbelt/docs/` — runtime contract (config attributes, paths, functions)
 
 ## 1. Boundaries
 - **One source system = one source-aligned data product** = one `data_product_identifier` = one lakehouse `lh_<id>` = one config file. An exchange-rate API is one product with datasets such as `exchange_rates` and `currencies`; the rate provider is a column, not a product boundary.
@@ -18,7 +19,8 @@ Read the long form only when a rule below does not settle the question:
   low value alone, valuable through reuse across many models), Business (combines multiple Foundational bricks,
   typically facts + dimensions), and optional Analytical on top. These live in domain workspaces, are modeled
   with the business, and are **out of scope for this toolpack** (which builds source-aligned only) — see
-  `data-product-architecture.md` for the full definitions before answering any question about them.
+  `../../reference/architecture/data-product-architecture.md` for the full definitions before answering any
+  question about them.
 
 ## 2. Source-aligned product contents
 raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` (+ optional `pl_<id>`), all inside workspace folder `<id>`.

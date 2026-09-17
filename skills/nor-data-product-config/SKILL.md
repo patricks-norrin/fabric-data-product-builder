@@ -5,16 +5,17 @@ description: Author, validate, push and provision a Norrin data product configur
 
 # nor-data-product-config
 
-Set `TOOLPACK_ROOT` to the directory containing this installed toolpack. Scripts resolve the consuming project
-from its Git root, falling back to the current directory outside Git. Add `--workspace ws_<name>` and/or
-`--target <profile>` to override `configuration/fabric_targets.json`.
+`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
+searching the filesystem. Scripts resolve the consuming project from its Git root, falling back to the current
+directory outside Git. Add `--workspace ws_<name>` and/or `--target <profile>` to override
+`configuration/fabric_targets.json`.
 
 ## Authoring (from API documentation to config)
 1. Read the source documentation (or the URL the user gives) and list the **endpoints that return entities** → each becomes a dataset (`dataset_name` snake_case). Skip metadata-only endpoints unless they carry reference data worth versioning (e.g. currencies).
 2. For each dataset decide the **natural key** (`unique_identifier_columns`) from the documented response fields — the smallest set unique within one extraction batch. Write down the reasoning in `source_configuration.notes`.
 3. Decide `object_version_timestamp_column` (business timestamp if the API has one; else `""`), `timestamp_columns_to_convert` (string timestamps), `exclude_columns_from_payload_checksum` (volatile fields).
 4. Fill `source_configuration` with the toolbelt API defaults: `base_url`, `relative_url_template`, `endpoint_query_parameters` (static values + `initial_load_start_date`), plus reader hints `spark_read_format` / `spark_read_options` / `response_format` and `notes`. These extras are allowed by `configuration/data_product/project_configuration/project_configuration.json`.
-5. Save as `configuration/data_product/<id>/<id>.json`. Follow `reference/lakehouse_toolbelt/docs/configuration-reference.md`; template: `schemas/data_product_configuration.example.json`.
+5. Save as `configuration/data_product/<id>/<id>.json` in the consuming project. Follow `../../reference/lakehouse_toolbelt/docs/configuration-reference.md`; template: `schemas/data_product_configuration.example.json`. The last two are relative to this file, inside the installed toolpack; the first is relative to the project.
 
 ## Validate (local, no Spark)
 ```bash

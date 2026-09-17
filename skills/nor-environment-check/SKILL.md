@@ -6,8 +6,9 @@ description: Prerequisite check of the target Fabric workspace before building a
 # nor-environment-check
 
 Run first in every session and whenever a `fab` command fails unexpectedly.
-Set `TOOLPACK_ROOT` to the directory containing this installed toolpack. Scripts resolve the consuming project
-from its Git root, falling back to the current directory outside Git.
+`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
+searching the filesystem. Scripts resolve the consuming project from its Git root, falling back to the current
+directory outside Git.
 
 ```bash
 bash "$TOOLPACK_ROOT/skills/nor-environment-check/scripts/check_environment.sh"

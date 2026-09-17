@@ -5,7 +5,8 @@ description: Cell-by-cell development loop for Fabric notebooks without VS Code 
 
 # nor-livy-session
 
-Set `TOOLPACK_ROOT` to the directory containing this installed toolpack. All commands use
+`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
+searching the filesystem. All commands use
 `bash "$TOOLPACK_ROOT/skills/nor-livy-session/scripts/livy_session.sh" <command> ...`.
 Add `--workspace ws_<name>` and/or `--target <profile>` when overriding project defaults. Session state is
 kept in `<project>/.scratch/<ws_name>/livy/livy_session.json`.

@@ -5,8 +5,9 @@ description: Publish a data product notebook definition (.py) into the product f
 
 # nor-notebook-publish-and-run
 
-Set `TOOLPACK_ROOT` to the directory containing this installed toolpack. Add `--workspace ws_<name>` and/or
-`--target <profile>` to override project defaults.
+`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
+searching the filesystem. Add `--workspace ws_<name>` and/or `--target <profile>` to override project
+defaults.
 
 ```bash
 bash "$TOOLPACK_ROOT/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh" publish sample_api nb_extract_sample_api

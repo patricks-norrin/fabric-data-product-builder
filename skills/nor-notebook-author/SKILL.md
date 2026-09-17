@@ -5,8 +5,9 @@ description: Author the two single-responsibility notebooks of a source-aligned 
 
 # nor-notebook-author
 
-Set `TOOLPACK_ROOT` to the directory containing this installed toolpack. Scripts resolve the consuming project
-from its Git root, falling back to the current directory outside Git.
+`TOOLPACK_ROOT` is two directories above this file's own directory — derive it from this file's path, never by
+searching the filesystem. Scripts resolve the consuming project from its Git root, falling back to the current
+directory outside Git.
 
 ## Render
 ```bash
