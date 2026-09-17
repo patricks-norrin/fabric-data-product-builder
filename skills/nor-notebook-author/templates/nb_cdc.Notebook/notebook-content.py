@@ -25,8 +25,8 @@
 # # nb_cdc_{{DATA_PRODUCT_IDENTIFIER}} — raw files to change history
 # 
 # Single responsibility: read new raw files of each dataset, add `dpmeta_*` metadata with `lakehouse_toolbelt`
-# and upsert the SCD2 change history to `Tables/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>`. Reader format/options come from the
-# dataset's `source_configuration` (`spark_read_format`, `spark_read_options`). Incremental via `modifiedAfter`.
+# and upsert the SCD2 change history to `Tables/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>`. The standard reader is JSON;
+# modify this notebook's reader code for a source with another raw format. Incremental via `modifiedAfter`.
 # Parameters: `datasets` — comma-separated subset, empty = all.
 
 # PARAMETERS CELL ********************
@@ -111,10 +111,7 @@ print(f"data product: {data_product.id} | processing: {selected}")
 
 def upsert_dataset_change_history(dataset) -> int:
     dataset.refresh_delta_table_state()
-    source = dataset.source_configuration
-    reader = spark.read.format(getattr(source, "spark_read_format", None) or "json").option("recursiveFileLookup", "true")
-    for option, value in (getattr(source, "spark_read_options", None) or {}).items():
-        reader = reader.option(option, value)
+    reader = spark.read.format("json").option("recursiveFileLookup", "true")
     latest_loaded = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
     if latest_loaded:
         reader = reader.option("modifiedAfter", latest_loaded)

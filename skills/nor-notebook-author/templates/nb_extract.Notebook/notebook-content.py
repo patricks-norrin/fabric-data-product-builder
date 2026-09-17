@@ -23,7 +23,7 @@
 # MARKDOWN ********************
 
 # # nb_extract_{{DATA_PRODUCT_IDENTIFIER}} — land source payloads in raw/
-# 
+#
 # Single responsibility: call the source and write every response **unchanged** to
 # `Files/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>/raw/<batch_id>/`. No parsing, no validation — `nb_cdc_{{DATA_PRODUCT_IDENTIFIER}}` does the change history.
 # Parameters: `batch_id` (empty = now, UTC `YYYYMMDDTHHMMSSZ`), `load_mode` = `incremental` | `backfill`.
@@ -106,36 +106,21 @@ print(f"data product: {data_product.id} | datasets: {list(data_product.datasets)
 
 # MARKDOWN ********************
 
-# ## Helpers: land a payload unchanged, resolve the extraction window
+# ## Resolve extraction start timestamps
+#
+# The user supplied `initial_load_start_date` after reviewing the source's historical availability. It is used only
+# on a first run, when no successful Delta change-history load exists. On later runs, each dataset uses the actual
+# `dpmeta_loaded_to_dataplatform` timestamp from its Delta table. Record the source-specific reason for the chosen
+# initial date here before running this notebook.
 
 # CELL ********************
 
-def land_payload(dataset, file_name: str, text: str) -> str:
-    """Write the source response text unchanged to raw/<batch_id>/<file_name>. Returns the full path."""
-    path = f"{dataset.file_path_raw}/{batch_id}/{file_name}"
-    notebookutils.fs.put(path, text, overwrite=True)
-    print(f"  landed {len(text.encode('utf-8')):>12,} bytes -> {path}")
-    return path
-
-
-def extraction_window(dataset) -> tuple[date, date]:
-    """incremental: from last loaded day to today; backfill: explicit range from parameters."""
-    params = dataset.source_configuration.endpoint_query_parameters or {}
-    if load_mode == "backfill":
-        return date.fromisoformat(backfill_start_date), date.fromisoformat(backfill_end_date)
-    last_loaded = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
-    start = last_loaded.date() if last_loaded else date.fromisoformat(params["initial_load_start_date"])
-    return start, date.today()
-
-
-def date_chunks(start: date, end: date, max_days: int):
-    while start <= end:
-        chunk_end = min(start + timedelta(days=max_days - 1), end)
-        yield start, chunk_end
-        start = chunk_end + timedelta(days=1)
-
-
-print("helpers defined: land_payload, extraction_window, date_chunks")
+extraction_start_timestamps = {}
+for dataset_name, dataset in data_product.datasets.items():
+    dataset.refresh_delta_table_state()
+    delta_timestamp = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
+    extraction_start_timestamps[dataset_name] = delta_timestamp or initial_load_start_date
+    print(f"{dataset_name}: extraction start = {extraction_start_timestamps[dataset_name]}")
 
 # METADATA ********************
 

@@ -176,7 +176,7 @@ back to headless-only if Livy is unavailable, and writing an evidence-based repo
 **Procedure it enforces** (verbatim structure from `agents/nor-data-product-builder.agent.md`):
 1. Load `nor-data-product-architecture`, run `nor-environment-check`; stop and report on failure.
 2. Understand the source (WebFetch the docs, sample endpoints with `curl`) → decide datasets/keys/timestamps,
-   write reasoning into `source_configuration.notes`.
+    write reasoning into the source-specific extraction notebook.
 3. Author, validate, push, provision config via `nor-data-product-config`.
 4. Render both notebooks via `nor-notebook-author`; implement the source-specific cells.
 5. Dev loop via `nor-livy-session`: run cells in order, fix only the failing cell on error, inspect raw/,
