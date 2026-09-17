@@ -15,9 +15,16 @@ bash "<directory of this SKILL.md>/scripts/check_environment.sh" sample_api --wo
 ```
 
 Run this installed script as-is. Do not copy it to `/tmp`, `sed` it, or substitute `fab --help` /
-`whoami`. It checks `fab >= 1.7.0` and `az >= 2.50.0` first, then `fab auth status`. It continues
-with every independent check whose dependencies are available and records dependent checks as `SKIPPED`.
+`whoami`. It checks `fab >= 1.7.0` and `az >= 2.50.0` first, then `fab auth status` and a reversible
+local-workspace create/modify/delete probe. It continues with every independent check whose dependencies
+are available and records dependent checks as `SKIPPED`.
 If `lh_workspace_shared_resources` is missing, the script creates it at the target workspace root.
+
+The local probe verifies the process executing the preflight can read and write the consuming project; it
+cannot inspect VS Code/Copilot tool-approval policy. A host may still ask the user to approve an individual
+terminal or file-edit action. Before the first mutation, the builder requests approval for only the planned
+command families and project directories; it must not request unrestricted shell, home-directory, toolpack,
+or tenant-wide access. Treat a denied approval as a blocker and report it rather than retrying.
 
 Reads `configuration/fabric_targets.json`, using its active target and default logical workspace unless
 overridden. A clean run prints one summary line. A run needing review prints one consolidated report with
@@ -43,6 +50,8 @@ or target settings can affect later checks.
   (`https://aka.ms/install-azure-cli`). Continue only if they explicitly accept no Livy loop.
 - `FAIL auth` → ask the user to run `fab auth login --tenant <id>` (browser); never handle secrets.
   Do **not** run `fab auth status` yourself — it prints tokens. Trust this script's PASS/FAIL line.
+- `FAIL local workspace` → the agent process cannot safely create or modify the consuming project's files.
+  Stop and ask the user to grant workspace write access or select a writable project directory.
 - `FAIL capacity` (Paused) → stop; the user must resume the capacity. Never start/stop capacities yourself.
 - `ACKNOWLEDGMENT capacity` (F2 or F4) → **stop and ask before any Spark work.** This workflow is verified on F8; on F2/F4
   sessions and jobs may fail or queue. Present the SKU and the risk, then continue only once the user either

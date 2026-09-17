@@ -99,6 +99,22 @@ else
   fail "project target configuration: $RESOLVED_CONTEXT"
 fi
 
+if [ "$CONTEXT_READY" -eq 1 ]; then
+  LOCAL_PROBE=""
+  if [ ! -r "$REPO_ROOT" ] || [ ! -w "$REPO_ROOT" ] || [ ! -x "$REPO_ROOT" ]; then
+    fail "local workspace: cannot read or create files in $REPO_ROOT"
+  elif [ ! -r "$TARGET_FILE" ] || [ ! -w "$TARGET_FILE" ]; then
+    fail "local workspace: target configuration $TARGET_FILE is not readable and writable"
+  elif LOCAL_PROBE=$(mktemp "$REPO_ROOT/.norrin-preflight.XXXXXX" 2>/dev/null) \
+    && printf 'created\nmodified\n' > "$LOCAL_PROBE" \
+    && rm -f "$LOCAL_PROBE"; then
+    pass "local workspace: read/create/modify/delete probe passed"
+  else
+    [ -n "$LOCAL_PROBE" ] && rm -f "$LOCAL_PROBE"
+    fail "local workspace: create/modify/delete probe failed in $REPO_ROOT"
+  fi
+fi
+
 WORKSPACE_READY=0
 if [ "$AUTH_READY" -eq 1 ] && [ "$CONTEXT_READY" -eq 1 ]; then
   WORKSPACE_ID=$(fab get "$WORKSPACE_PATH" -q id 2>/dev/null | strip_cr | tr -d '" ')

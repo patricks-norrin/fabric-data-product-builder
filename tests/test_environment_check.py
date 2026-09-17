@@ -61,6 +61,7 @@ class EnvironmentCheckTests(unittest.TestCase):
             self.assertIn("BLOCKERS\n- fab: 0.1.10 < 1.7.0", result.stdout)
             self.assertIn("SKIPPED\n- Fabric authentication: fab CLI unavailable", result.stdout)
             self.assertIn("PASSED\n- az: 2.61.0 (>= 2.50.0)", result.stdout)
+            self.assertIn("- local workspace: read/create/modify/delete probe passed", result.stdout)
             self.assertIn("- az token for api.fabric.microsoft.com available", result.stdout)
 
 
