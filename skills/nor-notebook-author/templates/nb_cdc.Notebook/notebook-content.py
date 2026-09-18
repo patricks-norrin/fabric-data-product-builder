@@ -5,18 +5,6 @@
 # META {
 # META   "kernel_info": {
 # META     "name": "synapse_pyspark"
-# META   },
-# META   "dependencies": {
-# META     "lakehouse": {
-# META       "default_lakehouse": "{{LAKEHOUSE_ID}}",
-# META       "default_lakehouse_name": "lh_{{DATA_PRODUCT_IDENTIFIER}}",
-# META       "default_lakehouse_workspace_id": "{{WORKSPACE_ID}}",
-# META       "known_lakehouses": [
-# META         {
-# META           "id": "{{LAKEHOUSE_ID}}"
-# META         }
-# META       ]
-# META     },
 # META   }
 # META }
 
@@ -25,14 +13,13 @@
 # # nb_cdc_{{DATA_PRODUCT_IDENTIFIER}} — raw files to change history
 # 
 # Single responsibility: read new raw files of each dataset, add `dpmeta_*` metadata with `lakehouse_toolbelt`
-# and upsert the SCD2 change history to `Tables/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>`. The standard reader is JSON;
-# modify this notebook's reader code for a source with another raw format. Incremental via `modifiedAfter`.
-# Parameters: `datasets` — comma-separated subset, empty = all.
+# and upsert the SCD2 change history to `Tables/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>`. Choose the native Spark
+# reader and only the required reader options for the completed raw files. Incremental via `modifiedAfter`.
+# Parameters: edit `filtered_datasets` below to process a subset while debugging.
 
 # PARAMETERS CELL ********************
 
 data_product_identifier = "{{DATA_PRODUCT_IDENTIFIER}}"
-datasets = ""
 
 # METADATA ********************
 
@@ -85,13 +72,12 @@ import lakehouse_toolbelt
 
 # MARKDOWN ********************
 
-# ## Load the data product configuration and select datasets
+# ## Load the data product configuration
 
 # CELL ********************
 
 data_product = lakehouse_toolbelt.DataProduct(data_product_identifier)
-selected = [name.strip() for name in datasets.split(",") if name.strip()] or list(data_product.datasets)
-print(f"data product: {data_product.id} | processing: {selected}")
+print(f"data product: {data_product.id} | datasets: {list(data_product.datasets)}")
 
 # METADATA ********************
 
@@ -102,15 +88,25 @@ print(f"data product: {data_product.id} | processing: {selected}")
 
 # MARKDOWN ********************
 
-# ## Change-history step for one dataset
+# ## Process selected datasets
 # 
-# raw (new files only) → lineage columns → `add_dpmeta_columns` → drop duplicate versions → `align_dataframe_to_delta_change_history_schema` → `upsert_delta_change_history`.
-# `modifiedAfter` filtering can leave zero files; Spark then fails schema inference, which is treated as "no new data".
+# Edit `datasets_to_skip` while testing one dataset. The default processes every configured dataset.
+# Raw files are read recursively from each dataset's raw path. Keep this loop and its watermark pattern unchanged.
+# The marked reader line is the source-specific choice: use a direct native Spark reader and only documented options.
 
 # CELL ********************
 
-def upsert_dataset_change_history(dataset) -> int:
+datasets_to_skip = []
+filtered_datasets = {
+    dataset_name: dataset
+    for dataset_name, dataset in data_product.datasets.items()
+    if dataset_name not in datasets_to_skip
+}
+
+for dataset_name, dataset in filtered_datasets.items():
+    print(f"Starting to process dataset: {dataset_name}")
     dataset.refresh_delta_table_state()
+    # --- SOURCE SPECIFIC READER: replace json/add native Spark options when the landed raw format requires it. ---
     reader = spark.read.format("json").option("recursiveFileLookup", "true")
     latest_loaded = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
     if latest_loaded:
@@ -119,70 +115,25 @@ def upsert_dataset_change_history(dataset) -> int:
     else:
         print("  first run: all files in raw/")
     try:
-        df_raw = reader.load(dataset.file_path_raw)
-        record_count = df_raw.count()
-    except Exception as e:
-        if "Unable to infer schema" in str(e):
+        raw_df = reader.load(dataset.file_path_raw)
+        record_count = raw_df.count()
+    except Exception as caught_exception:
+        if "Unable to infer schema" in str(caught_exception) or "AnalysisException" in type(caught_exception).__name__:
             print("  no new raw files since last load — skipped")
-            return 0
+            continue
         raise
-    df_with_lineage = (
-        df_raw
+    raw_with_lineage_df = (
+        raw_df
         .withColumn("dpmeta_input_file_name", F.input_file_name())
         .withColumn("dpmeta_source_system_id", F.lit(data_product.id))
     )
     if dataset.timestamp_columns_to_convert:
-        df_with_lineage = lakehouse_toolbelt.convert_timestamps(df_with_lineage, dataset.timestamp_columns_to_convert)
-    df_with_dpmeta = lakehouse_toolbelt.add_dpmeta_columns(dataframe=df_with_lineage, dataset=dataset)
-    df_deduplicated = df_with_dpmeta.dropDuplicates(["dpmeta_uid", "dpmeta_object_version_start_time"])
-    df_aligned = lakehouse_toolbelt.align_dataframe_to_delta_change_history_schema(source_dataframe=df_deduplicated, dataset=dataset)
-    lakehouse_toolbelt.upsert_delta_change_history(source_dataframe=df_aligned, dataset=dataset)
+        raw_with_lineage_df = lakehouse_toolbelt.convert_timestamps(raw_with_lineage_df, dataset.timestamp_columns_to_convert)
+    dpmeta_df = lakehouse_toolbelt.add_dpmeta_columns(dataframe=raw_with_lineage_df, dataset=dataset)
+    deduplicated_df = dpmeta_df.dropDuplicates(["dpmeta_uid", "dpmeta_object_version_start_time"])
+    aligned_df = lakehouse_toolbelt.align_dataframe_to_delta_change_history_schema(source_dataframe=deduplicated_df, dataset=dataset)
+    lakehouse_toolbelt.upsert_delta_change_history(source_dataframe=aligned_df, dataset=dataset)
     print(f"  {record_count:,} raw records processed -> {dataset.file_path_change_history}")
-    return record_count
-
-
-print("defined: upsert_dataset_change_history(dataset)")
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Run the change-history step for every selected dataset
-
-# CELL ********************
-
-processed = {}
-for dataset_name in selected:
-    print(f"── {dataset_name}")
-    processed[dataset_name] = upsert_dataset_change_history(data_product[dataset_name])
-print("processed raw records per dataset:", processed)
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Summary of change-history tables
-
-# CELL ********************
-
-for dataset_name in selected:
-    dataset = data_product[dataset_name]
-    dataset.refresh_delta_table_state()
-    if dataset.delta_change_history_table:
-        history = dataset.delta_change_history_table.toDF()
-        print(f"{dataset_name}: {history.count():,} rows ({history.filter(F.col('dpmeta_object_version_end_time').isNull()).count():,} current) at {dataset.file_path_change_history}")
-    else:
-        print(f"{dataset_name}: no change-history table yet")
 
 # METADATA ********************
 

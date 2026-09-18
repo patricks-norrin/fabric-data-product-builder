@@ -5,36 +5,22 @@
 # META {
 # META   "kernel_info": {
 # META     "name": "synapse_pyspark"
-# META   },
-# META   "dependencies": {
-# META     "lakehouse": {
-# META       "default_lakehouse": "{{LAKEHOUSE_ID}}",
-# META       "default_lakehouse_name": "lh_{{DATA_PRODUCT_IDENTIFIER}}",
-# META       "default_lakehouse_workspace_id": "{{WORKSPACE_ID}}",
-# META       "known_lakehouses": [
-# META         {
-# META           "id": "{{LAKEHOUSE_ID}}"
-# META         }
-# META       ]
-# META     },
 # META   }
 # META }
 
 # MARKDOWN ********************
 
-# # nb_extract_{{DATA_PRODUCT_IDENTIFIER}} — land source payloads in raw/
+# # nb_extract_{{DATA_PRODUCT_IDENTIFIER}} — land source data in raw/
 #
-# Single responsibility: call the source and write every response **unchanged** to
-# `Files/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>/raw/<batch_id>/`. No parsing, no validation — `nb_cdc_{{DATA_PRODUCT_IDENTIFIER}}` does the change history.
-# Parameters: `batch_id` (empty = now, UTC `YYYYMMDDTHHMMSSZ`), `load_mode` = `incremental` | `backfill`.
+# Single responsibility: write source data **unchanged** to
+# `Files/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>/raw/<batch_id>/`. Source-specific cells implement extraction;
+# `nb_cdc_{{DATA_PRODUCT_IDENTIFIER}}` creates the change history.
+# Parameter: `batch_id` (empty = now, UTC `YYYYMMDDTHHMMSSZ`).
 
 # PARAMETERS CELL ********************
 
 data_product_identifier = "{{DATA_PRODUCT_IDENTIFIER}}"
 batch_id = ""
-load_mode = "incremental"
-backfill_start_date = ""
-backfill_end_date = ""
 
 # METADATA ********************
 
@@ -49,13 +35,11 @@ backfill_end_date = ""
 
 # CELL ********************
 
-import json
 import subprocess
 import sys
-from datetime import datetime, date, timedelta
+from datetime import datetime
 
 import notebookutils
-import requests
 
 
 def ensure_toolbelt_from_shared_resources():
@@ -95,7 +79,7 @@ import lakehouse_toolbelt
 
 data_product = lakehouse_toolbelt.DataProduct(data_product_identifier)
 batch_id = batch_id or datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-print(f"data product: {data_product.id} | datasets: {list(data_product.datasets)} | batch_id: {batch_id} | load_mode: {load_mode}")
+print(f"data product: {data_product.id} | datasets: {list(data_product.datasets)} | batch_id: {batch_id}")
 
 # METADATA ********************
 

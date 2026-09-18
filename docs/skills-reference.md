@@ -59,7 +59,7 @@ product's lakehouse (existence + schema-enabled) and config presence.
 ## nor-data-product-config
 
 **Description:** "Author, validate, push and provision a Norrin data product configuration - the JSON that
-defines datasets, unique identifier columns, version timestamps and API source metadata for
+defines datasets, unique identifier columns and version timestamps for
 lakehouse_toolbelt. Pushes it to lh_workspace_shared_resources with fab cp, pushes project_configuration.json,
 and provisions the product folder and schema-enabled lakehouse lh_<id>."
 
@@ -69,8 +69,8 @@ cryptic Spark stack trace. This skill is the only place that writes it, validate
 the toolbelt enforces (plus Norrin naming), and provisions the Fabric containers (folder + schema-enabled
 lakehouse) the config implies.
 
-**Inputs:** `configuration/data_product/<id>/<id>.json` (authored per the "Authoring" section — from API docs
-to config, one dataset per entity, keys/timestamps/reader-options reasoned about explicitly);
+**Inputs:** `configuration/data_product/<id>/<id>.json` (one dataset per retained source entity, with
+keys and CDC timestamps);
 `configuration/data_product/project_configuration/project_configuration.json` (allow-list of extra
 `source_configuration`/`publish_configuration` attributes).
 **Outputs:** config pushed to `lh_workspace_shared_resources/Files/configuration/data_product/<id>/<id>.json`;
@@ -86,24 +86,41 @@ Norrin naming rules from `reference/architecture/conventions.json`); `scripts/pu
 
 ## nor-notebook-author
 
+## nor-rest-extraction
+
+**Description:** "Extract a REST API into a Norrin source-aligned Fabric data product using a source-specific
+notebook cell."
+
+**Reason to exist:** HTTP authentication, request construction, pagination, response representation, and JSON reader
+choices are source-family concerns. Keeping them here leaves the shared config and notebook templates usable by other
+source types.
+
+**Outputs:** a minimal dataset definition, direct `requests` extraction code that lands unchanged raw files, and the
+direct native Spark JSON reader choice for the marked line in the common CDC loop.
+
+---
+
+## nor-notebook-author
+
 **Description:** "Author the two single-responsibility notebooks of a source-aligned data product from
 templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id>
-(raw to lakehouse_toolbelt change history). Renders default-lakehouse bindings and stages the wheel from shared OneLake, then you
+(raw to lakehouse_toolbelt change history). Renders unbound notebooks and stages the wheel from shared OneLake, then you
 write only the source-specific extraction cells from the API documentation."
 
 **Reason to exist:** ~90% of both notebooks (parameters cell, config loading, dpmeta processing, the CDC
 upsert loop, summaries) is identical across every data product — it's the toolbelt contract, not the source.
-Only the cells that actually call the API differ. Templating that fixed part means every product gets the
+Only the source-specific extraction cells and marked native reader choice differ. Templating the fixed part means every product gets the
 same tested pattern, and the agent's real work is scoped to the small part that has to differ.
 
 **Inputs:** `configuration/data_product/<id>/<id>.json`; `configuration/fabric_targets.json`; the two
 templates under `templates/nb_extract.Notebook/` and `templates/nb_cdc.Notebook/`; `templates/platform.json`.
 **Outputs:** `ws_<name>/<id>/nb_extract_<id>.Notebook/{notebook-content.py,.platform}` and the `nb_cdc`
-equivalent, with `default_lakehouse`, `default_lakehouse_workspace_id` and `environmentId`/`workspaceId`
-resolved to real GUIDs via `fab`. `nb_cdc` is complete as rendered (fully config-driven); `nb_extract` has one
-`# --- SOURCE SPECIFIC: <dataset> ---` cell per dataset for the agent/human to implement.
-**Calls:** `scripts/render_notebook.py` → shells out to `fab get`/`fab api` for ids (no `fab_common.sh` — this
-script is pure Python + subprocess, deliberately dependency-light since it only reads ids, never mutates Fabric).
+equivalent, without a default lakehouse binding or physical Fabric IDs. `lakehouse_toolbelt` derives the product
+lakehouse ABFSS paths from the current workspace at runtime. `nb_cdc` is complete as rendered with an editable
+dataset skip list; `nb_extract` has one `# --- SOURCE SPECIFIC: <dataset> ---` cell per dataset for the
+agent/human to implement.
+**Calls:** `scripts/render_notebook.py` uses the selected target to choose the consuming workspace package; it
+does not call Fabric or bake workspace/lakehouse IDs into notebook definitions.
 
 **Rules it encodes for every cell** (also documented inline in `SKILL.md`): one responsibility per cell,
 markdown before code, rerunnable (idempotent per `batch_id`), prints what it produced, no `display()`/`%pip`/
@@ -192,7 +209,7 @@ metadata, History Server jobs/stages/executors, and resource usage.
 
 ## nor-data-product-builder (agent)
 
-**Description:** "Builds a Norrin source-aligned data product in Microsoft Fabric end to end from source API
+**Description:** "Builds a Norrin source-aligned data product in Microsoft Fabric end to end from source-system
 documentation - configuration, folder and lakehouse, nb_extract and nb_cdc notebooks, raw files and
 change-history tables - using only fab and the nor-* skills. Use when asked to create, extend or repair a
 source-aligned data product." **Tools:** `Bash, Read, Edit, Write, Glob, Grep, WebFetch, mcp__microsoft-learn__*`.

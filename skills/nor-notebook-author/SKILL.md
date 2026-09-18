@@ -1,6 +1,6 @@
 ---
 name: nor-notebook-author
-description: Author the two single-responsibility notebooks of a source-aligned data product from templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id> (raw to lakehouse_toolbelt change history). Renders default-lakehouse bindings and bootstraps lakehouse_toolbelt from the shared OneLake wheel, then you write only the source-specific extraction cells from the API documentation.
+description: Author the two single-responsibility notebooks of a source-aligned data product from templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id> (raw to lakehouse_toolbelt change history). Renders unbound notebooks and bootstraps lakehouse_toolbelt from the shared OneLake wheel, then you write only source-specific extraction cells.
 ---
 
 # nor-notebook-author
@@ -16,26 +16,32 @@ python3 "<directory of this SKILL.md>/scripts/render_notebook.py" cdc sample_api
 Writes `ws_<name>/<id>/nb_<kind>_<id>.Notebook/{notebook-content.py,.platform}` with workspace and
 lakehouse (`lh_<id>`) resolved via `fab`. Generated notebooks install the verified `lakehouse_toolbelt` wheel
 from `lh_workspace_shared_resources/Files/libraries/` when it is not already present, so they can use the
-workspace default Spark pool without an Environment binding. `nb_cdc` is complete as rendered — it is fully
-driven by the config. `nb_extract` has one marked cell per dataset (`# --- SOURCE SPECIFIC: <dataset> ---`) for
-you to implement.
+workspace default Spark pool without an Environment binding. `nb_cdc` is complete as rendered, with an editable
+dataset skip list for focused debugging. `nb_extract` has one marked cell per dataset (`# --- SOURCE SPECIFIC: <dataset> ---`)
+for you to implement.
 
 ## Rules for every cell (human-in-the-loop notebooks)
 - One responsibility per cell, a markdown cell before each code cell saying what and why.
 - Cells are rerunnable: same inputs → same files/rows (raw is per `batch_id`; CDC upsert is idempotent).
 - Each code cell ends by printing what it produced (paths, byte sizes, row counts). No validation logic, no exploration — that belongs elsewhere.
 - Works in both Livy and the notebook UI: no `display()`, no `%pip`, no `%run`, no `/lakehouse/default/` mounts; `spark.sql()` instead of `%%sql`.
-- Never transform before landing. Never hardcode Fabric ids or OneLake paths. Prefer `f"{source.base_url}/{dataset.dataset_name}"` when the dataset name is the endpoint. Keep a stable base URL in configuration; add a URL template there only when request path or query values vary between calls. Keep template values, credentials lookup, pagination, formats, dates, and source assumptions in the source-specific extraction cells.
+- Never transform source data before landing. Never hardcode Fabric ids or OneLake paths. Keep credentials, queries or requests, pagination, source-specific incremental logic, and reader decisions in source-specific extraction cells. The data-product JSON is a minimal iterable handoff for extraction and CDC, not a connector framework.
 
 ## Writing the source-specific extract cells
-Inputs you have: `dataset.source_configuration.base_url`, an optional `.relative_url_template`, and the notebook parameters. In each source-specific cell, set `initial_load_start_date` beside a comment explaining why that value is appropriate. The cell uses it only when the dataset has no successful Delta watermark; later calls receive `get_delta_change_history_dpmeta_loaded_to_dataplatform()`. Format `start_timestamp` for the API in that cell. For a simple endpoint, use `f"{source.base_url}/{dataset.dataset_name}"`; otherwise build the template-value dictionary and format `source.relative_url_template`. Keep authentication, request parameters, response format, pagination, and date-window logic in each source-specific cell.
-During development, put a deliberately small, representative bound in that source-specific cell beside a comment explaining why it was chosen. Prove both extraction and CDC with that sample before widening the same source-specific bound for the intended load. Do not add a shared `sample`, `limit`, or initial-load parameter to the generic template.
-Patterns:
-- **Time series API** (`/entities?from=&to=`): format `start_timestamp` for the source API, set the matching end timestamp in the source-specific cell, and iterate source-appropriate chunks there. `start_timestamp` is the Delta watermark on subsequent runs and the documented notebook value only on a first run. Land one file per chunk `<dataset>_<from>_<to>.<ext>`.
-- **Reference/snapshot endpoint** (`/reference-values`): one GET, land `<dataset>.json` each run; CDC versions changes.
-- **Paginated API**: loop pages until empty, land one file per page.
-- Always `response.raise_for_status()`; land the response **text unchanged**.
-- `load_mode` parameter: `incremental` (default) or `backfill` with `backfill_start_date`/`backfill_end_date` for history recovery.
+Load the applicable source extraction skill before implementing a cell. During development, use a deliberately small,
+representative bound beside the reason it was chosen. Prove extraction and CDC with that sample before widening the
+same source-specific bound for the intended load. Do not add shared source parameters to the generic template.
+
+- **Use native Spark first.** Read [Spark Data Sources](https://spark.apache.org/docs/latest/sql-data-sources.html)
+	to select the reader, and [Generic File Source Options](https://spark.apache.org/docs/latest/sql-data-sources-generic-options.html)
+	for `recursiveFileLookup`, `pathGlobFilter`, and modification-time filters. Consult the selected reader's official
+	Spark documentation for format-specific options. Verify uncertain options against the active Fabric runtime.
+- **Keep CDC fixed and visible.** It uses one editable `datasets_to_skip` list and one inline dataset loop. Preserve
+	the raw path, recursive lookup, watermark-derived `modifiedAfter`, lineage, `add_dpmeta_columns`, duplicate removal,
+	schema alignment, and upsert sequence. Change only the marked direct native Spark reader expression and its required
+	options. Do not add runtime selectors, wrappers, registries, or connector abstractions.
+- **Use custom code only when necessary.** If raw-file evidence shows native Spark cannot produce the configured rows,
+	add the smallest dataset-local normalization and document the observed reason.
 
 ## After rendering
-Run cells with `nor-livy-session` before publishing. First prove a completed small raw batch and its CDC upsert. Then widen the source-specific bound and repeat extract plus CDC from a fresh session for the intended load.
+Run cells with `nor-livy-session` before publishing. First prove a completed small raw batch, inspect it with the chosen generic Spark reader, and then prove its CDC upsert. Then widen the source-specific bound and repeat extract plus CDC from a fresh session for the intended load.

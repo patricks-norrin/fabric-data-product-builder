@@ -26,18 +26,20 @@ file's own directory, inside the installed toolpack — not to the consuming pro
 raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` (+ optional `pl_<id>`), all inside workspace folder `<id>`.
 
 ## 3. Raw is insurance
-Land exactly what the source returned: `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/<file>`. Keep API payload format (JSON/NDJSON), database exports as parquet/csv. Never rename columns, cast types or filter before landing. Reprocessing history = re-reading raw.
+Land exactly what the source returned: `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/<file>`. Keep API payload format (JSON/NDJSON); export relational tables as Parquet snapshots or incremental slices, never CSV. Never rename columns, cast types, or filter before landing. Reprocessing history = re-reading raw.
 
 ## 4. CDC is the default
-Every tabular dataset goes through `lakehouse_toolbelt` SCD2 (`Tables/<id>/<dataset>`). Exceptions (last resort, must be written into the config `source_configuration` as a note): no possible unique identifier; mandatory sub-second streaming pass-through; truly static generated data. Non-tabular assets (images, PDFs) skip CDC and are stored under `Files/<id>/<asset_type>/`.
+Every tabular dataset goes through `lakehouse_toolbelt` SCD2 (`Tables/<id>/<dataset>`). Exceptions are last resort: no possible unique identifier, mandatory sub-second streaming pass-through, or truly static generated data. Document the exception and its rationale in the relevant extraction or CDC notebook markdown cell, never in the data-product config. Non-tabular artifacts, including binary files, skip CDC but are still stored unchanged under `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/`.
 
 ## 5. Keys and versions
 - Choose `unique_identifier_columns` as the smallest natural key that is unique **within one batch** (verify against real data before committing).
 - Set `object_version_timestamp_column` when the source has a reliable business timestamp; otherwise leave empty (toolbelt uses load time).
-- Timestamp strings → `timestamp_columns_to_convert`. Volatile columns that must not trigger a new version → `exclude_columns_from_payload_checksum`.
+- Timestamp strings may be converted after raw read through `timestamp_columns_to_convert` and the standard `lakehouse_toolbelt.convert_timestamps(...)` step, before CDC metadata is added. Volatile columns that must not trigger a new version → `exclude_columns_from_payload_checksum`.
 
-## 6. Source metadata in config
-Put a stable `base_url` in `source_configuration`. When the endpoint is the dataset name, the notebook uses `f"{base_url}/{dataset_name}"`. Use `relative_url_template` only when the endpoint path or query must vary between calls, such as from/to timestamps, paging, or several endpoint attributes. Keep template values, reader settings, authentication, and all source-specific behavior in notebook code. Do not use `endpoint_query_parameters`, reader-option extras, or `project_configuration.json` for a standard data product.
+## 6. Minimal shared config
+The data-product JSON is a small iterable handoff for extraction implementations (notebook or pipeline) and CDC. Standard datasets need only their name, natural key, and optional version/timestamp metadata. Keep credentials, queries, request values, pagination, reader options, and operational extraction behavior beside the extracting code, where the decision can be documented and replaced later by a catalog.
+
+`lakehouse_toolbelt` accepts source metadata such as `source_schema`, `source_table`, `filter_string`, `base_url`, `relative_url_template`, and `endpoint_query_parameters`. These remain compatible when a consuming implementation needs them; they are not a prescribed standard or a connector framework.
 
 ## 7. Incremental by convention
 Extract pulls from the last `get_delta_change_history_dpmeta_loaded_to_dataplatform()` (or an initial date declared in the extraction notebook); CDC reads raw with `modifiedAfter` that same timestamp and wraps `.load()` in try/except for "Unable to infer schema" (no new files).

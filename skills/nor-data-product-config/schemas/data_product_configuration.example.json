@@ -6,9 +6,7 @@
       "dataset_name": "<entity snake_case>",
       "unique_identifier_columns": ["<key_col_1>", "<key_col_2>"],
       "object_version_timestamp_column": "<source business timestamp, if available>",
-      "source_configuration": {
-        "base_url": "https://api.example.com/v2"
-      }
+      "source_configuration": {}
     }
   ]
 }

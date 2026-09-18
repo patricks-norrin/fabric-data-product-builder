@@ -38,4 +38,4 @@ The workspace names are examples, not reserved names. Each `ws_<name>` package c
 dev, test, prod, or feature workspace through Fabric Git integration or `fabric-cicd`.
 
 Start: `fab auth login --tenant <tenant-id>`, configure `configuration/fabric_targets.json`, then ask the agent:
-"Build the source-aligned data product for <API>".
+"Build the source-aligned data product for <source system>".

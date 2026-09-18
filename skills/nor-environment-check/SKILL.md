@@ -51,7 +51,7 @@ or target settings can affect later checks.
 - `FAIL az` (missing or `< 2.50.0`) → Livy cannot be trusted; ask the user to upgrade Azure CLI
   (`https://aka.ms/install-azure-cli`). Continue only if they explicitly accept no Livy loop.
 - `FAIL auth` → ask the user to run `fab auth login --tenant <id>` (browser); never handle secrets.
-  Do **not** run `fab auth status` yourself — it prints tokens. Trust this script's PASS/FAIL line.
+  `fab auth status` is safe for diagnosis because it redacts credentials.
 - `FAIL local workspace` → the agent process cannot safely create or modify the consuming project's files.
   Stop and ask the user to grant workspace write access or select a writable project directory.
 - `FAIL capacity` (Paused) → stop; the user must resume the capacity. Never start/stop capacities yourself.
