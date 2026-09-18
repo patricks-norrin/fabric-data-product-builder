@@ -29,6 +29,15 @@ notebook template here; preserve unrelated behavior.
   the source requirements and existing toolbelt pattern require them.
 - When changing an operational rule, update its owning agent or skill, template or script, and focused test together.
 - Never include generated customer projects, temporary state, credentials, or unrelated workspace changes in a commit.
+- Keep scripts and tests structural. Validate syntax, shape, types, required keys, naming, and uniqueness — things
+  decidable from the file alone and traceable to a written contract. Do not encode meaning or intent: whether a
+  value is "operational", redundant, or well-chosen depends on the source system, so a regex over names or values
+  produces false positives that block legitimate builds. A false positive is worse than a missing check here,
+  because the agent will work around a wrong error rather than surface it.
+- Express judgment rules as guidance in the owning agent or skill, ideally as a worked good/bad example. If code
+  should still hint, emit a non-blocking `WARN`, never an error. Do not generalize a rule from a single bad output.
+- Assert behavior in tests, not prompt wording. Matching exact prose from an agent or skill file makes every
+  rewording a test failure and freezes phrasing that should keep improving.
 
 ## Validation And Release
 

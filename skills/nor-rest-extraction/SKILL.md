@@ -20,7 +20,10 @@ that represents a retained entity, provide:
 
 Keep API authentication, headers, request values, pagination, retries, rate-limit handling, date windows, and
 response-format choices in the extract cell. Do not create a connector framework, wrapper, or config schema for
-these values.
+these values. A stable `base_url`, `relative_url_template`, and durable `endpoint_query_parameters` may remain in
+source metadata when the parameters select which dataset or schema a shared endpoint returns. Operational values,
+including extraction windows, belong in the notebook. Do not define a parameter when its value is already literal
+in the template (for example, do not also define `provider = "ecb"` for `/providers/ecb/`).
 
 ## Procedure
 
@@ -32,13 +35,47 @@ these values.
 3. Write direct, readable `requests` code in the dataset's extraction cell. Call `response.raise_for_status()`. For
    incremental APIs, get the prior watermark with
    `dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()` and keep any first-load value, request date
-   formatting, and page/chunk loop beside the request code.
+   formatting, and page/chunk loop beside the request code. Put fixed lower or upper extraction bounds there too,
+   with a nearby comment stating why each bound was chosen and whether it was supplied by the user.
 4. Inspect the completed raw batch. At the marked reader line in the common CDC loop, use direct Spark JSON reading:
    `spark.read.format("json").option("recursiveFileLookup", "true")`. Add `multiLine=True` only when the landed files
    are whole JSON documents or arrays. Keep the common `modifiedAfter` watermark block unchanged.
 5. Use the generated CDC loop as-is: no helper wrappers, custom schemas, or `text` plus `from_json` unless evidence
    shows Spark's native reader cannot handle the landed representation. Keep any necessary exception dataset-local and
    document the observed reason.
+
+## Splitting source metadata from run values
+
+Nothing validates this split; it is a judgment call from the API documentation.
+
+Keep in `source_configuration`: values that identify the dataset for every run — a stable `base_url`, a
+`relative_url_template`, and `endpoint_query_parameters` that select which entity or schema a shared endpoint
+returns.
+
+Keep in the extract cell: values that change per run or per decision — extraction windows, watermarks,
+pagination, credentials, and retry behavior.
+
+```jsonc
+// Avoid: an extraction window and a provider already fixed in the path
+"source_configuration": {
+  "base_url": "https://api.frankfurter.dev",
+  "relative_url_template": "/v2/providers/ecb/rates?from={from_date}&to={to_date}",
+  "endpoint_query_parameters": { "provider": "ecb", "load_end_date": "2025-12-31" }
+}
+
+// Prefer: the template carries the structure, the notebook supplies the dates
+"source_configuration": {
+  "base_url": "https://api.frankfurter.dev",
+  "relative_url_template": "/v2/providers/ecb/rates?from={from_date}&to={to_date}"
+}
+
+// Also correct: one endpoint serving several datasets needs the selector in config
+"source_configuration": {
+  "base_url": "https://api.example.com",
+  "relative_url_template": "/v1/entities?schema={schema}",
+  "endpoint_query_parameters": { "schema": "customers" }
+}
+```
 
 ## References
 

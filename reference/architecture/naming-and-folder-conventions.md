@@ -5,7 +5,7 @@ Machine-readable twin: `conventions.json` (used by `nor-environment-check` and f
 | Thing | Rule | Example |
 |---|---|---|
 | Workspace | `ws_<domain>[_<env>]` | `ws_extract_dev` |
-| Data product identifier | snake_case, source system id | `sample_api`, `oracle_ebs_finland` |
+| Data product identifier | snake_case, actual source provider or system id; never a business subject or dataset | `frankfurter_api`, `oracle_ebs_finland` |
 | Dataset name | snake_case, logical dataset in the source | `exchange_rates`, `currencies` |
 | Product folder (workspace) | `<data_product_identifier>` — same rule for every tier: source-aligned, foundational, business, analytical | `sample_api` |
 | Product lakehouse | `lh_<data_product_identifier>`, schema-enabled — same rule for every tier, no tier-specific prefix | `lh_sample_api` |

@@ -39,6 +39,7 @@ def main(path):
         if not uid or not isinstance(uid, list): errors.append(f"dataset '{n}': unique_identifier_columns must be a non-empty list")
         for k in ds:
             if k not in DATASET_KNOWN: warnings.append(f"dataset '{n}': unknown attribute '{k}' (ignored by toolbelt)")
+        # Structural checks only: whether a value is operational or redundant needs the source docs, not a regex.
         for k in ds.get("source_configuration", {}) or {}:
             if k not in src_allowed: errors.append(f"dataset '{n}': source_configuration.'{k}' not allowed (defaults + project_configuration extras: {sorted(src_allowed)})")
         for k in ds.get("publish_configuration", {}) or {}:

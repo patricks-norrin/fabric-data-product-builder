@@ -1,6 +1,6 @@
 {
   "domain": "<business domain, e.g. treasury>",
-  "data_product_identifier": "<source_system_id snake_case>",
+  "data_product_identifier": "<source_provider_or_system_id snake_case, e.g. frankfurter_api>",
   "datasets": [
     {
       "dataset_name": "<entity snake_case>",

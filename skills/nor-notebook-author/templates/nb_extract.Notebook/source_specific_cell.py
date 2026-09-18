@@ -11,7 +11,8 @@ dataset = data_product.{{DATASET_NAME}}
 raw_batch_path = f"{dataset.file_path_raw}/{batch_id}"
 # Consult the applicable source documentation and use its native client or Spark reader. Keep credentials, query or
 # request values, pagination, and source-specific incremental logic in this cell. Land source data unchanged under
-# raw_batch_path and document the raw format, file extension, and why any non-default Spark reader option is needed.
+# raw_batch_path. For each fixed extraction bound, comment why it was selected and whether it came from user input.
+# Document the raw format, file extension, and why any non-default Spark reader option is needed.
 raise NotImplementedError("implement source-specific extraction for {{DATASET_NAME}} and land unchanged files under raw_batch_path")
 
 # METADATA ********************
