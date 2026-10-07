@@ -10,7 +10,7 @@ Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`. Add `--workspace w
 
 ```bash
 bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" publish sample_api nb_extract_sample_api
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" run sample_api nb_extract_sample_api -P load_mode:string=incremental --timeout 1800
+bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" run sample_api nb_extract_sample_api --timeout 1800
 bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" export sample_api nb_extract_sample_api --workspace ws_example --target dev
 bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" runs sample_api nb_extract_sample_api
 ```

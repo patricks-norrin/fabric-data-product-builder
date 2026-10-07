@@ -97,6 +97,13 @@ class RenderNotebookTests(unittest.TestCase):
             self.assertIn("ensure_toolbelt_from_shared_resources", rendered_content)
             self.assertIn('batch_id = ""', rendered_content)
             self.assertIn("raw_batch_path", rendered_content)
+            self.assertIn('raw_file_name_stem = f"things_{batch_id}"', rendered_content)
+            self.assertIn(
+                "latest_change_history_load_timestamp = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()",
+                rendered_content,
+            )
+            self.assertNotIn("initial_load_lower_bound", rendered_content)
+            self.assertNotIn("load_mode", rendered_content)
             self.assertIn("Consult the applicable source documentation", rendered_content)
             self.assertNotIn("import requests", rendered_content)
             self.assertNotIn("initial_load_start_date", rendered_content)
@@ -128,7 +135,16 @@ class RenderNotebookTests(unittest.TestCase):
             self.assertIn("SOURCE SPECIFIC READER", cdc_content)
             self.assertIn("dataset.file_path_raw", cdc_content)
             self.assertIn("get_delta_change_history_dpmeta_loaded_to_dataplatform()", cdc_content)
-            self.assertIn('reader = reader.option("modifiedAfter", latest_loaded)', cdc_content)
+            self.assertIn(
+                'reader = reader.option("modifiedAfter", latest_change_history_load_timestamp)',
+                cdc_content,
+            )
+            self.assertIn(
+                'print("  no latest change-history load timestamp: all files in raw/")',
+                cdc_content,
+            )
+            self.assertNotIn("first_run", cdc_content)
+            self.assertNotIn("load_mode", cdc_content)
             self.assertIn("lakehouse_toolbelt.add_dpmeta_columns", cdc_content)
             self.assertIn("dropDuplicates([\"dpmeta_uid\", \"dpmeta_object_version_start_time\"])", cdc_content)
             self.assertIn("lakehouse_toolbelt.align_dataframe_to_delta_change_history_schema", cdc_content)

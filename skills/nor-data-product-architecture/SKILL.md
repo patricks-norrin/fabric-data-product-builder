@@ -26,7 +26,7 @@ file's own directory, inside the installed toolpack — not to the consuming pro
 raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` (+ optional `pl_<id>`), all inside workspace folder `<id>`.
 
 ## 3. Raw is insurance
-Land exactly what the source returned: `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/<file>`. Keep API payload format (JSON/NDJSON); export relational tables as Parquet snapshots or incremental slices, never CSV. Never rename columns, cast types, or filter before landing. Reprocessing history = re-reading raw.
+Land exactly what the source returned: `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/<logical_identifier>_<batch_id>.<extension>`. The stable logical identifier comes first, and the filename's `<batch_id>` must match its parent batch folder so the file remains attributable outside that folder. Keep API payload format (JSON/NDJSON); export relational tables as Parquet snapshots or incremental slices, never CSV. Never rename columns, cast types, or filter before landing. Reprocessing history = re-reading raw.
 
 ## 4. CDC is the default
 Every tabular dataset goes through `lakehouse_toolbelt` SCD2 (`Tables/<id>/<dataset>`). Exceptions are last resort: no possible unique identifier, mandatory sub-second streaming pass-through, or truly static generated data. Document the exception and its rationale in the relevant extraction or CDC notebook markdown cell, never in the data-product config. Non-tabular artifacts, including binary files, skip CDC but are still stored unchanged under `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/`.
@@ -42,4 +42,12 @@ The data-product JSON is a small iterable handoff for extraction implementations
 `lakehouse_toolbelt` accepts source metadata such as `source_schema`, `source_table`, `filter_string`, `base_url`, `relative_url_template`, and `endpoint_query_parameters`. These remain compatible when a consuming implementation needs them; they are not a prescribed standard or a connector framework. Durable endpoint parameters may distinguish datasets or schemas returned by one endpoint. Operational request values and extraction windows belong beside the extraction code where their rationale can be documented.
 
 ## 7. Incremental by convention
-Extract pulls from the last `get_delta_change_history_dpmeta_loaded_to_dataplatform()` (or an initial date declared in the extraction notebook); CDC reads raw with `modifiedAfter` that same timestamp and wraps `.load()` in try/except for "Unable to infer schema" (no new files).
+Source-side delta extraction is the default, not an optional optimization. First inspect the source for modified/created timestamp filters, increasing keys or versions, cursors, change feeds, or equivalent query predicates. Use one implementation in every environment:
+1. Build the base request for the user's requested scope.
+2. Read `get_delta_change_history_dpmeta_loaded_to_dataplatform()`.
+3. When it returns a latest change-history load timestamp, add the corresponding source-side lower filter.
+4. When no latest change-history load timestamp exists, execute the base request unchanged to ingest all requested history.
+
+Do not add `first_run`, `initial_load`, `load_mode`, or equivalent mode parameters. If an unscoped base request is not allowed, use the source's documented earliest value; if no objective value exists, ask the user rather than inventing one. CDC reads raw with `modifiedAfter` and wraps `.load()` in try/except for "Unable to infer schema" (no new files).
+
+Fall back to full snapshots only when (1) the user explicitly asks for snapshots, (2) the user explicitly requests a closed interval, or (3) source documentation and inspection establish that no reliable incremental filter exists. Document which exception applies beside the extraction code. A lower bound alone remains open-ended and continues incrementally; only an explicit upper boundary makes the requested interval closed. Never invent a boundary the user did not provide.

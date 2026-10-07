@@ -461,7 +461,7 @@ The architecture pattern works seamlessly with `lakehouse_toolbelt` for CDC work
 
 1. **Extract to raw/** — Land data in timestamped batches under `Files/<dp_id>/<dataset>/raw/<batch_identifier>/`
 2. **Process with toolbelt** — Read from raw, add metadata columns (`dpmeta_input_file_name`, `dpmeta_source_system_id`), then call lakehouse_toolbelt functions
-3. **Incremental loading** — Use `dpmeta_loaded_to_dataplatform` for delta filtering
+3. **Incremental loading** — Use one implementation: build the base request, add a source filter when the latest `dpmeta_loaded_to_dataplatform` exists, and otherwise send the base request unchanged for all requested history. Do not use first-run or load-mode parameters. If a required lower bound has no user or source-defined value, ask rather than inventing one. Snapshots are an explicit fallback.
 
 **For detailed API usage, code examples, and complete workflow patterns**, see `reference/lakehouse_toolbelt/`.
 
@@ -497,9 +497,10 @@ The architecture pattern works seamlessly with `lakehouse_toolbelt` for CDC work
 - Source provides timestamps, version numbers, or CDC capabilities
 - Examples: Customer data, invoices, products, transactions, **exchange rates**, price lists, reference data
 
-**When CDC cannot be extracted** - Fall back to snapshots:
-- Source system doesn't support change detection
-- Technical constraint prevents CDC implementation
+**When source-side delta extraction cannot be used** - Fall back to snapshots only when:
+- The user explicitly requests a snapshot or a closed timeframe
+- Source documentation and inspection establish that the dataset has no reliable timestamp, increasing key/version,
+  cursor, change feed, or equivalent server-side filter
 - **Fallback approach**: Use `raw_delta/` as a **single Delta table** containing all snapshots
   - Append each full extract with a snapshot timestamp/version column
   - Query specific snapshots by filtering: `WHERE snapshot_timestamp = '2026-04-08'`

@@ -17,7 +17,7 @@ Machine-readable twin: `conventions.json` (used by `nor-environment-check` and f
 | Modeling notebook (foundational) | `nb_model_<data_product_identifier>` — **proposed**, based on precedent found elsewhere in the org; not yet built by this toolpack | `nb_model_customer` |
 | Data product notebook (business) | `nb_dp_<data_product_identifier>` — not yet built by this toolpack | `nb_dp_currency_exchange_rates` |
 | Pipeline (optional) | `pl_<data_product_identifier>` | `pl_sample_api` |
-| Raw landing | `Files/<id>/<dataset>/raw/<batch_id>/<file>` in the product lakehouse | |
+| Raw landing | `Files/<id>/<dataset>/raw/<batch_id>/<logical_identifier>_<batch_id>.<extension>` in the product lakehouse | The stable logical identifier comes first; the filename batch ID must match its parent folder. |
 | Batch id | `YYYYMMDDTHHMMSSZ` (UTC), regex `^\d{8}T\d{6}Z$` | `20260911T081530Z` |
 | Raw file format | original source format (json/ndjson/csv/parquet), never transformed | `rates_2024.ndjson` |
 | Change history | `Tables/<id>/<dataset>` (schema-enabled lakehouse), created by the toolbelt | `Tables/sample_api/entities` |

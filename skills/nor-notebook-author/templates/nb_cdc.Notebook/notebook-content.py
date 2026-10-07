@@ -91,7 +91,7 @@ print(f"data product: {data_product.id} | datasets: {list(data_product.datasets)
 # ## Process selected datasets
 # 
 # Edit `datasets_to_skip` while testing one dataset. The default processes every configured dataset.
-# Raw files are read recursively from each dataset's raw path. Keep this loop and its watermark pattern unchanged.
+# Raw files are read recursively from each dataset's raw path. Keep this loop and its latest-load-timestamp pattern unchanged.
 # The marked reader line is the source-specific choice: use a direct native Spark reader and only documented options.
 
 # CELL ********************
@@ -108,12 +108,12 @@ for dataset_name, dataset in filtered_datasets.items():
     dataset.refresh_delta_table_state()
     # --- SOURCE SPECIFIC READER: replace json/add native Spark options when the landed raw format requires it. ---
     reader = spark.read.format("json").option("recursiveFileLookup", "true")
-    latest_loaded = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
-    if latest_loaded:
-        reader = reader.option("modifiedAfter", latest_loaded)
-        print(f"  incremental: files modified after {latest_loaded}")
+    latest_change_history_load_timestamp = dataset.get_delta_change_history_dpmeta_loaded_to_dataplatform()
+    if latest_change_history_load_timestamp:
+        reader = reader.option("modifiedAfter", latest_change_history_load_timestamp)
+        print(f"  incremental: files modified after {latest_change_history_load_timestamp}")
     else:
-        print("  first run: all files in raw/")
+        print("  no latest change-history load timestamp: all files in raw/")
     try:
         raw_df = reader.load(dataset.file_path_raw)
         record_count = raw_df.count()

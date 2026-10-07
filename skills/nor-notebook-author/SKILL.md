@@ -26,18 +26,24 @@ for you to implement.
 - Each code cell ends by printing what it produced (paths, byte sizes, row counts). No validation logic, no exploration — that belongs elsewhere.
 - Works in both Livy and the notebook UI: no `display()`, no `%pip`, no `%run`, no `/lakehouse/default/` mounts; `spark.sql()` instead of `%%sql`.
 - Never transform source data before landing. Never hardcode Fabric ids or OneLake paths. Keep credentials, queries or requests, pagination, source-specific incremental logic, and reader decisions in source-specific extraction cells. The data-product JSON is a minimal iterable handoff for extraction and CDC, not a connector framework.
+- Prefer source-side delta extraction whenever the source can filter by time, increasing key/version, cursor, change feed, or an equivalent predicate. Use the optional latest change-history timestamp scaffolded in each source-specific cell: add its source filter when non-null, otherwise run the same base request unchanged for all requested history. Never add a first-run or load-mode parameter. Snapshot only for an explicit user request, an explicitly closed timeframe, or a source proven to have no reliable incremental filter; document that reason in the cell.
 
 ## Writing the source-specific extract cells
 Load the applicable source extraction skill before implementing a cell. During development, use a deliberately small,
 representative bound beside the reason it was chosen. Prove extraction and CDC with that sample before widening the
 same source-specific bound for the intended load. Do not add shared source parameters to the generic template.
 
+Treat a user-supplied “from” date as base request scope, not as a closed interval. When none is supplied and no latest
+change-history load timestamp exists, omit the lower filter for all available history if the source permits, or use the source's documented
+earliest available value. If the source requires a lower bound but defines no earliest value, ask the user; do not invent one.
+Do not add an upper bound unless the user supplies one or the source API requires a dynamic current-time bound.
+
 - **Use native Spark first.** Read [Spark Data Sources](https://spark.apache.org/docs/latest/sql-data-sources.html)
 	to select the reader, and [Generic File Source Options](https://spark.apache.org/docs/latest/sql-data-sources-generic-options.html)
 	for `recursiveFileLookup`, `pathGlobFilter`, and modification-time filters. Consult the selected reader's official
 	Spark documentation for format-specific options. Verify uncertain options against the active Fabric runtime.
 - **Keep CDC fixed and visible.** It uses one editable `datasets_to_skip` list and one inline dataset loop. Preserve
-	the raw path, recursive lookup, watermark-derived `modifiedAfter`, lineage, `add_dpmeta_columns`, duplicate removal,
+	the raw path, recursive lookup, latest-change-history-load-timestamp-derived `modifiedAfter`, lineage, `add_dpmeta_columns`, duplicate removal,
 	schema alignment, and upsert sequence. Change only the marked direct native Spark reader expression and its required
 	options. Do not add runtime selectors, wrappers, registries, or connector abstractions.
 - **Use custom code only when necessary.** If raw-file evidence shows native Spark cannot produce the configured rows,
