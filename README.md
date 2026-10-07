@@ -9,6 +9,17 @@ The toolpack can be installed once and used from GitHub Copilot CLI, GitHub Copi
 or Cursor sessions opened in any consuming project. Scripts resolve that project's Git root (or cwd outside
 Git); generated files and temporary state never belong to the installed toolpack.
 
+## Install with GitHub Copilot CLI
+
+Register the Azure DevOps repository as a plugin marketplace, then install the toolpack from that marketplace:
+
+```bash
+copilot plugin marketplace add https://naksfi@dev.azure.com/naksfi/Fabric/_git/nor-data-product-builder
+copilot plugin install norrin-fabric-data-product-toolpack@norrin-fabric-plugins
+```
+
+The first command requires Git credentials that can access the Azure DevOps repository.
+
 Single execution surface: the Microsoft Fabric CLI (`fab`). One login per customer tenant.
 
 - `agents/nor-data-product-builder.agent.md` — canonical orchestrating agent
