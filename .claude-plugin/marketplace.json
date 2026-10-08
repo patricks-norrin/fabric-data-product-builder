@@ -6,9 +6,9 @@
   "plugins": [
     {
       "name": "norrin-fabric-data-product-toolpack",
-      "version": "1.0.15",
+      "version": "1.0.16",
       "source": ".",
-      "description": "Build source-aligned Fabric data products end to end: config, lakehouse, extract+CDC notebooks, raw files and change-history tables, using fab CLI + lakehouse_toolbelt."
+      "description": "Build source-aligned Fabric data products and apply Foundational and Business modelling conventions."
     }
   ],
   "description": "Norrin internal Claude Code plugins for Microsoft Fabric data product development."

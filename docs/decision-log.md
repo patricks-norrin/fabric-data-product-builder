@@ -150,3 +150,29 @@ at the end of the session per instruction #18.
 32. **The installed plugin is self-contained.** Microsoft skills are development-machine references, not
     runner dependencies. The runner receives the complete Norrin agent and skills through `plugin install`;
     external CLIs remain environment prerequisites and belong in the future devcontainer.
+
+## Consumer-aligned modelling standard (2026-10-08)
+
+33. **Modelling is a skill, not a second agent.** Foundational and Business modelling currently needs one
+    reusable authoring standard, not context isolation or different tools by stage. `nor-data-product-modelling`
+    owns notebook structure, business-rule boundaries, output contracts, monetary types, and cross-product
+    relationships. A dedicated agent is deferred until modelling has a distinct end-to-end provisioning,
+    execution, validation, and publication workflow.
+34. **The builder classifies before acting.** Source-aligned requests continue through extraction and CDC;
+    Foundational and Business requests route to the modelling skill; Analytical implementation is explicitly
+    unsupported. Classification follows ownership and transformation intent, not a particular source-system
+    name.
+35. **Business grain precedes implementation.** Each model declares its grain; the user decides when it is
+    ambiguous. `dpmeta_uid` deterministically identifies that grain from its natural, possibly composite key,
+    including `dpmeta_source_system_id` when source identifiers are not globally unique.
+36. **Joins favor visible provenance over aliases.** DataFrames use descriptive stage names, project narrow
+    inputs, and use full DataFrame-qualified column references. Missing values remain null unless the business
+    contract says otherwise, and document dates or local business times are never shifted or normalized.
+37. **Version 1.0.16 publishes modelling guidance without claiming modelling orchestration.** Structural tests
+    verify skill discovery metadata, required modelling sections, builder routing, and synchronized package
+    versions. Transformation test generation remains the next modelling iteration.
+38. **Fabric preflight is connection-gated, not session-gated.** Local files can be read, reviewed, compared,
+    edited, and validated with local checks without Fabric authentication or target configuration. The full
+    environment check runs before the first action that connects to Fabric, including OneLake inspection,
+    remote validation, execution, publication, provisioning, or cleanup. Local findings must not be presented
+    as remotely verified evidence.

@@ -17,10 +17,10 @@ file's own directory, inside the installed toolpack — not to the consuming pro
 - A **dataset** is one logical entity from the source (an endpoint, a table, a file type). Each dataset needs a business key (`unique_identifier_columns`, composite allowed).
 - Everything else is **consumer-aligned**: Foundational (one business concept, e.g. `customer`, `exchange_rates` —
   low value alone, valuable through reuse across many models), Business (combines multiple Foundational bricks,
-  typically facts + dimensions), and optional Analytical on top. These live in domain workspaces, are modeled
-  with the business, and are **out of scope for this toolpack** (which builds source-aligned only) — see
-  `../../reference/architecture/data-product-architecture.md` for the full definitions before answering any
-  question about them.
+  typically facts + dimensions), and optional Analytical on top. These live in domain workspaces and are modeled
+  with the business. Load `nor-data-product-modelling` for Foundational and Business notebook structure,
+  business-rule, contract, datatype, and relationship conventions. End-to-end orchestration remains limited to
+  source-aligned products in the current `nor-data-product-builder` agent.
 
 ## 2. Source-aligned product contents
 raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` (+ optional `pl_<id>`), all inside workspace folder `<id>`.

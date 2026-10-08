@@ -56,6 +56,18 @@ Both established by running the CLI, not by reading docs:
 The pack carries a near-duplicate `.cursor-plugin/` pair alongside `.claude-plugin/`. These are hand-maintained
 and will drift.
 
+## Release bookkeeping
+
+Before publishing a release:
+
+1. Move completed entries from `CHANGELOG.md`'s `Unreleased` section into a dated version section.
+2. Set the same version in both plugin manifests and both marketplace entries.
+3. Run `python3 -m json.tool` for all four JSON files.
+4. Run `python3 -m unittest discover -s tests`; the suite checks version synchronization and that the current
+  manifest version has a changelog entry.
+5. Commit only the release files and push the intended branch. Tags are optional until the project adopts a
+  tagging convention; historical versions through 1.0.16 were not tagged.
+
 ## Installing
 
 ### On a clean machine (preferred)
@@ -70,8 +82,8 @@ working against Azure DevOps over HTTPS; the plugin landed at
 `~/.copilot/installed-plugins/norrin-fabric-plugins/norrin-fabric-data-product-toolpack/` with the agent file
 present.
 
-Install reports `Installed 6 skills` and says nothing about agents. The count excludes agents — absence of a
-mention is not evidence the agent was skipped, so check the file on disk if in doubt.
+The repository currently ships nine skills. Install output reports a skill count but says nothing about agents;
+absence of an agent mention is not evidence the agent was skipped, so check the file on disk if in doubt.
 
 ### Local development loop
 
@@ -126,8 +138,8 @@ in effect from the first token. That asymmetry is the practical form of the prec
   machine where the stale user-level agent cannot mask the result.
 - **Claude Code and Cursor.** Only Copilot CLI was exercised. The `.claude-plugin/` and `.cursor-plugin/`
   manifests are untested.
-- **`tests/`.** `pytest` is not importable in the development environment, so `tests/test_project_context.py`
-  and `tests/test_render_notebook.py` have never been run. The restructure that moved every path is exactly
-  the change those tests exist to catch.
-- **The restructured pack end to end.** The extract + CDC loop was last proven on 2026-09-11, before the
-  worktree restructure and the multi-harness path abstraction.
+- **The restructured pack end to end.** The local unittest suite passes, including project-context, notebook
+  rendering, modelling-skill structure, and manifest-version synchronization. The extract + CDC loop was last
+  proven on 2026-09-11, before the worktree restructure and the multi-harness path abstraction.
+- **Consumer-aligned modelling end to end.** The modelling skill is an authoring standard; it does not yet
+  render, publish, run, or test a modelling notebook as an orchestrated workflow.

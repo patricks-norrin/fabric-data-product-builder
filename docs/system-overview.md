@@ -21,6 +21,7 @@ norrin-fabric-data-product-toolpack/
 │   └── nor-data-product-builder.agent.md   # Canonical orchestrator
 ├── skills/                            # Canonical, harness-neutral skills
 │   ├── nor-data-product-architecture/
+│   ├── nor-data-product-modelling/
 │   ├── nor-environment-check/
 │   ├── nor-data-product-config/
 │   ├── nor-rest-extraction/
@@ -58,6 +59,8 @@ User
      │                                         not itself touch Fabric except via the skills below)
       │
       ├─ 1. skill: nor-data-product-architecture   (read-only reasoning; no scripts — answers "what/why")
+      │
+      ├─ skill: nor-data-product-modelling          (read-only Foundational/Business modelling standard)
       │
       ├─ 2. skill: nor-environment-check
       │      └─ scripts/check_environment.sh  ──sources──> scripts/fab_common.sh ──calls──> fab, az
@@ -98,7 +101,8 @@ exposes that context to shell skills and resolves `$WORKSPACE_ID`/`$ENVIRONMENT_
 |---|---|---|
 | `nor-data-product-builder` | Canonical non-negotiable rules and orchestration | Loaded identically by each plugin harness |
 | `nor-data-product-architecture` | Decision rules (boundaries, keys, CDC-vs-exception) | Pure reasoning, no side effects, reused by every other skill's judgment calls |
-| `nor-environment-check` | Prerequisite verification and shared-resource bootstrap | Must run before anything else; isolates "is the platform ready" from "build the thing" |
+| `nor-data-product-modelling` | Foundational and Business notebook, rule, contract, datatype, and relationship conventions | A reusable authoring standard; it needs neither a separate agent context nor its own execution tools |
+| `nor-environment-check` | Prerequisite verification and shared-resource bootstrap | Runs before the first Fabric-connected action; local review and editing remain available offline |
 | `nor-data-product-config` | Author/validate/push config, provision folder + lakehouse | The only place that touches the shared-resources lakehouse and creates the product's Fabric container |
 | `nor-rest-extraction` | REST-specific request and raw-format decisions | Keeps HTTP authentication, pagination, and JSON choices out of shared notebook/config contracts |
 | `nor-notebook-author` | Turn config + API knowledge into the two notebooks | Templating is mechanical and reusable across data products; only the source-specific cells differ |
@@ -106,10 +110,12 @@ exposes that context to shell skills and resolves `$WORKSPACE_ID`/`$ENVIRONMENT_
 | `nor-notebook-publish-and-run` | Ship the proven notebook and prove it runs unattended | Separates "I saw it work interactively" from "it works headless, which is how it will actually run" |
 | `nor-data-product-builder` (agent) | Sequence the above, enforce retry/safety rules, report with evidence | Only the agent needs judgment (when to stop, when to ask); everything else is a deterministic procedure |
 
-## What's deliberately absent (iteration-1 scope)
+## What's deliberately absent
 
-- **`nor-data-product-validation`** — no skill exists yet. Validation (UID uniqueness, duplicate detection,
-  schema checks against the source) was explicitly deferred until extract + CDC are proven reliable.
+- **`nor-data-product-validation`** — no source-product validation skill exists yet. UID uniqueness, duplicate
+  detection, and source-schema checks remain deferred.
+- **Automated modelling tests** — transformation functions are kept testable, but test generation and execution
+  are explicitly deferred to the next modelling iteration.
 - **Pipeline items** (`pl_<id>`) — folder convention reserves the name; nothing renders or publishes one yet.
 - **A separate standards repo** — `reference/architecture/` lives inside this toolpack for iteration 1; splitting
   it out is deferred until a second consumer needs the same architecture docs.

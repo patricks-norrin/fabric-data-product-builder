@@ -26,6 +26,29 @@ and `reference/lakehouse_toolbelt/docs/` for the long form).
 
 ---
 
+## nor-data-product-modelling
+
+**Description:** "Model Norrin foundational and business data products in Microsoft Fabric. Use when designing
+or reviewing a modelling notebook, business rules, output contracts, monetary datatypes, Delta table
+descriptions, or relationships between data products."
+
+**Reason to exist:** modelling conventions are reusable domain guidance with one capability level throughout;
+they do not require a separate agent context or different tool restrictions. Keeping them outside the
+source-aligned builder avoids expanding that agent beyond its proven extract-and-CDC workflow. A dedicated
+modelling agent can be introduced later if end-to-end provisioning, execution, validation, and publication
+develop into a distinct orchestrated workflow.
+
+**Contents:** `SKILL.md` only. It defines the notebook sequence, the boundary between inline transformations
+and named pure business-rule functions, executable output contracts with persisted Delta descriptions,
+decimal conventions for monetary data, and cross-product relationship naming. Local review, editing, and
+local-only checks do not require Fabric preflight; remote inspection, execution, publication, and provisioning
+do.
+
+**Inputs:** agreed product boundary and upstream product contracts. **Outputs:** a modelling notebook and Delta
+tables following the standard. Automated transformation tests are reserved for the next iteration.
+
+---
+
 ## nor-environment-check
 
 **Description:** "Prerequisite check of the target Fabric workspace before building a data product -
@@ -35,15 +58,16 @@ project_configuration.json, the Environment carrying lakehouse_toolbelt, Livy AP
 
 **Reason to exist:** almost every failure encountered while building this (capacity paused, pool too small for
 the SKU, Environment in the wrong workspace, wheel too old, no `az` token) is a *precondition*, not a bug in
-the data product logic. Running one script first turns a confusing mid-build failure into a named, actionable
-line before any Fabric object is touched.
+the data product logic. Running one script before the first Fabric-connected action turns a confusing
+mid-build failure into a named, actionable line before any Fabric object is touched, without blocking local
+review or editing.
 
 **Inputs:** `configuration/fabric_targets.json`; optional `<data_product_identifier>`, `--workspace`, and
-`--target` arguments. Before the first mutation, the builder states the bounded host-approval boundary: the
-planned command families and local writes under `configuration/`, `ws_<name>/`, and `.scratch/`, plus Fabric
-writes only in the selected workspace. The user must choose the host's repo-scoped persistent approval when
-it appears; conversational confirmation cannot grant it. The builder must not request a permanent blanket
-whitelist.
+`--target` arguments. Before the first Fabric-connected action, the builder states the bounded host-approval
+boundary: the planned command families and local writes under `configuration/`, `ws_<name>/`, and `.scratch/`,
+plus Fabric writes only in the selected workspace. The user must choose the host's repo-scoped persistent
+approval when it appears; conversational confirmation cannot grant it. The builder must not request a
+permanent blanket whitelist.
 **Outputs:** one success line when no review is needed; otherwise one consolidated report of blockers,
 acknowledgments, recommendations, skipped checks, and passed checks. Non-zero exit on blockers.
 **Calls:** `scripts/check_environment.sh` → sources `scripts/fab_common.sh` → `fab`, `az account get-access-token`.
