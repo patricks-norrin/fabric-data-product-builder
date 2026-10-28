@@ -1,122 +1,58 @@
-# System overview
+# Toolpack architecture and scope
 
-## What this repo is
+The toolpack packages the `nor-data-product-builder` agent, its `nor-*` skills, and the scripts and templates
+those skills use. It supports:
 
-A self-contained, harness-neutral kit that lets a coding agent build a **Norrin source-aligned data product**
-in Microsoft Fabric: one source system landed as
-raw files plus SCD2 change-history tables, using `lakehouse_toolbelt` as the processing contract and `fab`
-(Microsoft Fabric CLI) as the only execution surface.
+- End-to-end source-aligned data products for REST APIs: configuration, raw landing, and `lakehouse_toolbelt`
+  change history.
+- Foundational and Business product modelling as an authoring and review standard, not an automated build
+  workflow.
+- Supporting workflows for environment checks, Livy notebook development, publication, execution, and Spark
+  diagnostics.
 
-It is an installable, harness-neutral toolpack. A consuming solution repository owns configuration, deployable
-Fabric workspace packages, and transient state; the installed toolpack owns only reusable agent instructions,
-skills, scripts, templates, schemas, and reference material.
+The consuming Fabric solution owns its configuration, deployable workspace packages, and temporary run state.
+The installed toolpack provides reusable instructions and implementation resources; it does not own generated
+customer projects.
 
-## Directory tree and what each part is for
+## Request routing
 
-```
-norrin-fabric-data-product-toolpack/
-├── README.md                      # Human-facing intro and quick start
-├── .devcontainer/devcontainer.json# Harness-neutral Python 3.12 + fab + Azure CLI development environment
-├── agents/
-│   └── nor-data-product-builder.agent.md   # Canonical orchestrator
-├── skills/                            # Canonical, harness-neutral skills
-│   ├── nor-data-product-architecture/
-│   ├── nor-data-product-modelling/
-│   ├── nor-environment-check/
-│   ├── nor-data-product-config/
-│   ├── nor-rest-extraction/
-│   ├── nor-notebook-author/
-│   ├── nor-livy-session/
-│   └── nor-notebook-publish-and-run/
-├── .claude-plugin/                 # Claude registration metadata
-├── .cursor-plugin/                 # Cursor registration metadata
-├── reference/
-│   ├── architecture/              # The WHY, distilled from existing Norrin sources (see decision-log)
-│   │   ├── data-product-architecture.md
-│   │   ├── workspace-and-lakehouse-responsibilities.md
-│   │   ├── naming-and-folder-conventions.md
-│   │   ├── conventions.json               # machine-readable twin of the naming table
-│   │   └── notebook-conventions-source.md # raw import, not yet curated
-│   └── lakehouse_toolbelt/        # Vendored copy of the toolbelt's docs/ and examples/ (runtime contract)
-├── templates/project/
-│   └── configuration/
-│       ├── fabric_targets.json    # Generic multi-environment target template
-│       └── fabric_targets.schema.json
-├── scripts/
-│   ├── fab_common.sh              # Shared bash helpers
-│   └── norrin_context.py          # Project/workspace/target resolver
-└── tests/                          # Temporary consuming-project fixtures; no checked-in generated items
-```
+`nor-data-product-builder` classifies the requested product role before acting:
 
-Active `configuration/`, `ws_<name>/`, generated notebooks, and `.scratch/` belong only to a separate consuming
-Fabric solution repository.
+| Request | Route |
+|---|---|
+| Faithfully introduce one external source | Source-aligned build via architecture, environment, config, extraction, notebook, Livy, and publish/run skills |
+| Model a reusable business concept or combine concepts for a business need | `nor-data-product-modelling` |
+| Create a specialized Analytical representation | Report that implementation is not supported |
+| Unclear ownership or transformation intent | Ask the user to clarify |
 
-## Relationships: who calls whom
+`nor-spark-diagnostics` supports evidence-led investigation after or during Spark runs. It is read-only and
+does not replace the publish/run or Livy workflows.
 
-```
-User
- └─> agent: nor-data-product-builder          (loaded by the active plugin manifest; orchestrates and does
-     │                                         not itself touch Fabric except via the skills below)
-      │
-      ├─ 1. skill: nor-data-product-architecture   (read-only reasoning; no scripts — answers "what/why")
-      │
-      ├─ skill: nor-data-product-modelling          (read-only Foundational/Business modelling standard)
-      │
-      ├─ 2. skill: nor-environment-check
-      │      └─ scripts/check_environment.sh  ──sources──> scripts/fab_common.sh ──calls──> fab, az
-      │
-      ├─ 3. skill: nor-data-product-config
-      │      ├─ scripts/validate_data_product_config.py   (stdlib only, reads toolpack conventions and the
-      │      │                                              consuming project's data-product configuration)
-      │      └─ scripts/push_data_product_config.sh  ──sources──> fab_common.sh ──calls──> fab
-      │
-      ├─ 4. skill: nor-notebook-author
-      │      └─ scripts/render_notebook.py  (reads project config + target matrix, resolves ids via `fab`,
-      │                                       fills templates/*, writes ws_<name>/<id>/...)
-      ├─ source-specific skill: nor-rest-extraction
-      │      └─ REST documentation + direct `requests` extraction cell + native Spark JSON reader choice
-      │
-      ├─ 5. skill: nor-livy-session
-      │      ├─ scripts/livy_session.sh  ──sources──> fab_common.sh (ids only) ──calls──> az (token) + curl (Livy REST)
-      │      ├─ scripts/notebook_cells.py    (parses a notebook-content.py into cells)
-      │      ├─ scripts/format_statement_output.py
-      │      └─ preamble/livy_preamble.py    (injected as statement 0 of every session — see conventions doc)
-      │
-      └─ 6. skill: nor-notebook-publish-and-run
-             └─ scripts/run_notebook_job.sh  ──sources──> fab_common.sh ──calls──> fab (import/job run/export)
+## Component map
 
-reference/lakehouse_toolbelt/   <-- read by: nor-data-product-architecture, nor-data-product-config,
-                                              nor-notebook-author (never executed; it's documentation)
-```
+| Component | Role |
+|---|---|
+| `agents/nor-data-product-builder.agent.md` | Classifies requests, routes to skills, applies safety and evidence rules |
+| `skills/*/SKILL.md` | Canonical procedures and standards; see the [skills index](skills-reference.md) |
+| Skill-local `scripts/`, templates, schemas, and preamble | Executable support for the procedures that own them |
+| `reference/architecture/` | Norrin product, workspace, naming, and notebook conventions |
+| `reference/lakehouse_toolbelt/` | Vendored toolbelt documentation and examples used as the CDC implementation contract |
+| `templates/project/` | Generic project configuration templates |
+| `tests/` | Structural and behavior checks for scripts, templates, skills, and plugin metadata |
+| `.claude-plugin/`, `.cursor-plugin/` | Host plugin and marketplace metadata |
 
-`scripts/norrin_context.py` resolves the consuming project independently of the installed toolpack, then selects
-the logical workspace and physical target from `configuration/fabric_targets.json`. `scripts/fab_common.sh`
-exposes that context to shell skills and resolves `$WORKSPACE_ID`/`$ENVIRONMENT_ID` via `fab`,
-`item_id`, `onelake_mkdir_p`, `fab_api`/`fab_api_q` (CRLF-stripped, JMESPath-scoped to `text.`), and the
-`pass/warn/fail/die` logging convention used by every script's output.
+The toolpack contains nine skills. The skills and their resources are the implementation source of truth;
+this overview and the skills index summarize and link to them rather than restating their detailed procedures.
 
-## Responsibilities at a glance
+## Boundaries
 
-| Component | Responsibility | Why it's separate |
-|---|---|---|
-| `nor-data-product-builder` | Canonical non-negotiable rules and orchestration | Loaded identically by each plugin harness |
-| `nor-data-product-architecture` | Decision rules (boundaries, keys, CDC-vs-exception) | Pure reasoning, no side effects, reused by every other skill's judgment calls |
-| `nor-data-product-modelling` | Foundational and Business notebook, rule, contract, datatype, and relationship conventions | A reusable authoring standard; it needs neither a separate agent context nor its own execution tools |
-| `nor-environment-check` | Prerequisite verification and shared-resource bootstrap | Runs before the first Fabric-connected action; local review and editing remain available offline |
-| `nor-data-product-config` | Author/validate/push config, provision folder + lakehouse | The only place that touches the shared-resources lakehouse and creates the product's Fabric container |
-| `nor-rest-extraction` | REST-specific request and raw-format decisions | Keeps HTTP authentication, pagination, and JSON choices out of shared notebook/config contracts |
-| `nor-notebook-author` | Turn config + API knowledge into the two notebooks | Templating is mechanical and reusable across data products; only the source-specific cells differ |
-| `nor-livy-session` | Cell-by-cell dev loop with real output | The only way to see what a cell produces without VS Code; isolates the auth complexity (az vs fab tokens) |
-| `nor-notebook-publish-and-run` | Ship the proven notebook and prove it runs unattended | Separates "I saw it work interactively" from "it works headless, which is how it will actually run" |
-| `nor-data-product-builder` (agent) | Sequence the above, enforce retry/safety rules, report with evidence | Only the agent needs judgment (when to stop, when to ask); everything else is a deterministic procedure |
+- REST is the currently supported source-extraction type. Do not imply JDBC or file extraction workflows exist
+  until they are implemented and proven.
+- Foundational and Business modelling guidance does not generate, publish, execute, or test notebooks as an
+  orchestrated workflow.
+- Analytical implementation and pipeline generation are not supported workflows.
+- Generated project configuration and notebook items belong in the consuming solution, not in the installed
+  toolpack.
 
-## What's deliberately absent
-
-- **`nor-data-product-validation`** — no source-product validation skill exists yet. UID uniqueness, duplicate
-  detection, and source-schema checks remain deferred.
-- **Automated modelling tests** — transformation functions are kept testable, but test generation and execution
-  are explicitly deferred to the next modelling iteration.
-- **Pipeline items** (`pl_<id>`) — folder convention reserves the name; nothing renders or publishes one yet.
-- **A separate standards repo** — `reference/architecture/` lives inside this toolpack for iteration 1; splitting
-  it out is deferred until a second consumer needs the same architecture docs.
-- **Fabric MCP server** — deliberately not used for agent operations (see conventions doc); optional for humans only.
+For the user-facing capabilities and installation entry point, see the [README](../README.md). For exact
+procedures, follow the owning skill rather than copying implementation details into this overview.

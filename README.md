@@ -1,59 +1,109 @@
-# norrin-fabric-data-product-toolpack
+# Norrin Data Product Builder
 
-Harness-neutral tooling, instructions and templates that let a coding agent build a
-**source-aligned data product** in Microsoft Fabric end to end and apply a shared modelling standard to
-Foundational and Business data products. Source-aligned products follow the `lakehouse_toolbelt` contract;
-consumer-aligned modelling guidance covers notebook structure, business rules, output contracts, monetary
-types, Delta descriptions, and cross-product relationships.
+Build source-aligned data products, model consumer-aligned products, and develop and troubleshoot Spark
+notebooks in **Microsoft Fabric** with the `nor-data-product-builder` agent.
 
-The toolpack can be installed once and used from GitHub Copilot CLI, GitHub Copilot in VS Code, Claude Code,
-or Cursor sessions opened in any consuming project. Scripts resolve that project's Git root (or cwd outside
-Git); generated files and temporary state never belong to the installed toolpack.
+Use it from GitHub Copilot in VS Code or CLI, Claude Code, or Cursor, in your own project.
 
-## Install with GitHub Copilot CLI
+## What You Can Do
 
-Register the Azure DevOps repository as a plugin marketplace, then install the toolpack from that marketplace:
+The two main use cases are **sourcing data** and **modelling products on top of that data**.
+
+### Source-Aligned Products: Sourcing and Technical Implementation
+
+Introduce data from one external source system without adding business meaning. Source entities are datasets
+inside that product, with unchanged raw landing and source-faithful change history.
+
+The agent builds, extends, or repairs the technical implementation: product configuration, a schema-enabled
+lakehouse, separate extract and CDC notebooks, and `lakehouse_toolbelt` change-history tables. It runs the
+workflow and verifies raw batches, table schemas, and row counts.
+
+**Currently supported source type: REST APIs.** The agent reads API documentation, identifies datasets and
+keys, implements authentication and pagination, and uses incremental extraction where the source supports
+it. REST extraction is part of the source-aligned workflow, not a separate product use case.
+
+Example: `frankfurter_api` is the source-aligned product; `exchange_rates` is a dataset inside it.
+
+### Consumer-Aligned Products: Modelling and Business Meaning
+
+Build modelled products on top of source-aligned data. The agent helps design, edit, or review modelling
+notebooks: grain, identifiers, joins, business rules, output contracts, monetary types, Delta descriptions,
+and relationships between products.
+
+| Product role | Purpose | Example |
+|---|---|---|
+| **Foundational** | Model one reusable business concept with agreed attributes, identifiers, and business rules. | `purchase_invoice`, `supplier`, or `exchange_rate`. |
+| **Business** | Combine Foundational products to answer a business need. | Spend analysis built from invoices, suppliers, and exchange rates. |
+
+The agent chooses the workflow from the requested outcome. Modelling a business concept does not trigger
+source extraction or CDC. Consumer-aligned modelling currently provides authoring and review standards,
+not automated notebook scaffolding or generated tests. Specialized
+**Analytical** products, such as graphs or application-serving indexes, do not yet have an implementation workflow.
+
+### Utilities: Develop, Diagnose, and Execute
+
+Use these supporting workflows during product development or on an existing notebook:
+
+| Utility | How the agent helps |
+|---|---|
+| **Notebook development with Livy** | Run PySpark or SQL cell by cell in a Fabric Spark session, inspect outputs and tracebacks, and fix and rerun the failing cell without rerunning the whole notebook. |
+| **Spark troubleshooting** | Investigate failed, slow, or stuck notebook and Livy runs using failure reasons, Spark Advisor, bounded logs, stages, and executors. |
+| **Publish and run** | Publish notebook definitions to the selected Fabric workspace, execute them headlessly, and report run status and failure evidence. |
+
+## Try These Requests
+
+Select `nor-data-product-builder` in your coding assistant and describe the outcome you need:
+
+### Source-Aligned Products
+
+- "Build a source-aligned product for this REST API. Use its documentation to identify datasets, keys, and incremental extraction options: <documentation URL>."
+
+### Consumer-Aligned Products
+
+- **Foundational modelling:** "Model the purchase_invoice Foundational product from our source-aligned invoice data. Make the grain, business rules, and output contract explicit."
+- **Business modelling:** "Model a spend analysis Business product using our purchase_invoice, supplier, and exchange_rate products."
+- **Modelling review:** "Review this modelling notebook against the Norrin standard. Report the findings before making changes."
+
+### Utilities
+
+- **Livy development:** "Run this notebook cell by cell through Livy, inspect the outputs, and help fix the failing cell."
+- **Troubleshooting:** "Investigate this failed Fabric notebook run: <job instance ID>. Report the evidence before changing or rerunning it."
+- **Publish and run:** "Publish this notebook to the selected Fabric workspace, run it headlessly, and report the result."
+
+## Get Started
+
+Open the project where your data products belong. Generated configuration and notebooks stay in that
+project, not in the installed plugin.
+
+Local notebook editing and reviews need no Fabric connection. For live builds, execution, or diagnostics,
+you need access to a Fabric workspace, the Microsoft Fabric CLI (`fab`), and Azure CLI (`az`). Sign in to the
+customer tenant:
+
+```bash
+fab auth login --tenant <tenant-id>
+az login --tenant <tenant-id> --allow-no-subscriptions --use-device-code
+```
+
+The agent checks the environment before connecting to Fabric. It uses your project's
+`configuration/fabric_targets.json` to select the workspace and target; when the file is missing, it helps
+you select a workspace and create the mapping. Livy uses Azure CLI sign-in for delegated OneLake access.
+
+### Install with GitHub Copilot CLI
+
+Already installed in VS Code? Start with a request above. For a new CLI installation, register the marketplace
+and install the plugin:
 
 ```bash
 copilot plugin marketplace add https://naksfi@dev.azure.com/naksfi/Fabric/_git/nor-data-product-builder
 copilot plugin install norrin-fabric-data-product-toolpack@norrin-fabric-plugins
 ```
 
-The first command requires Git credentials that can access the Azure DevOps repository.
+Marketplace registration requires Git credentials with access to the Azure DevOps repository.
 
-Single execution surface: the Microsoft Fabric CLI (`fab`). One login per customer tenant.
+## Further Reading
 
-- `agents/nor-data-product-builder.agent.md` — canonical orchestrating agent
-- `skills/nor-*` — canonical procedures and standards (source-aligned operations plus Foundational/Business modelling)
-- `.claude-plugin/`, `.cursor-plugin/` — host registration metadata only
-- `reference/architecture/` — the Norrin data product architecture (single source of truth)
-- `reference/lakehouse_toolbelt/` — vendored toolbelt docs and examples (runtime contract)
-- `templates/project/` — generic files a consuming project can copy and customize
-- `scripts/` — harness-neutral project/target resolution and Fabric helpers
-- `tests/` — fixture-based tests that prove outputs stay outside the installed toolpack
-- `docs/` — how this repo is structured, why each piece exists, conventions and decisions made building it
-- `CHANGELOG.md` — release history reconstructed from manifest versions and Git history
-
-This repository contains no generated notebooks or deployable workspace package. Those belong in a separate
-consuming project, for example:
-
-```text
-project/
-├── configuration/
-│   ├── fabric_targets.json
-│   └── data_product/
-├── ws_extract/
-├── ws_procurement/
-└── .scratch/
-```
-
-The workspace names are examples, not reserved names. Each `ws_<name>` package can be deployed to the mapped
-dev, test, prod, or feature workspace through Fabric Git integration or `fabric-cicd`.
-
-Start: `fab auth login --tenant <tenant-id>`, configure `configuration/fabric_targets.json`, then ask the agent:
-
-- Source-aligned: "Build the source-aligned data product for <source system>."
-- Consumer-aligned: "Model the Foundational data product <business concept>."
-
-The builder classifies requests before acting. It runs the end-to-end extract and CDC procedure only for
-source-aligned products and routes Foundational or Business modelling to `nor-data-product-modelling`.
+- [Skills reference](docs/skills-reference.md): index of the packaged agent and skills.
+- [Project layout](docs/project-layout.md): where configuration, notebooks, and temporary state belong.
+- [Architecture and dependencies](docs/conventions-and-dependencies.md): conventions and runtime requirements.
+- [Maintainer documentation](docs/README.md): current repository and plugin maintenance references.
+- [Changelog](CHANGELOG.md): release history.
