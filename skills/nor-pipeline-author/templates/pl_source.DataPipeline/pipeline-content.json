@@ -1,0 +1,29 @@
+{
+  "properties": {
+    "description": "Source-aligned data product {{DATA_PRODUCT_IDENTIFIER}}: extract to raw, then CDC to change history.",
+    "activities": [
+      {
+        "name": "nb_extract_{{DATA_PRODUCT_IDENTIFIER}}",
+        "type": "TridentNotebook",
+        "dependsOn": [],
+        "policy": {"timeout": "0.02:00:00", "retry": 1, "retryIntervalInSeconds": 30, "secureOutput": false, "secureInput": false},
+        "typeProperties": {
+          "notebookId": "{{EXTRACT_NOTEBOOK_LOGICAL_ID}}",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "sessionTag": "pl_{{DATA_PRODUCT_IDENTIFIER}}"
+        }
+      },
+      {
+        "name": "nb_cdc_{{DATA_PRODUCT_IDENTIFIER}}",
+        "type": "TridentNotebook",
+        "dependsOn": [{"activity": "nb_extract_{{DATA_PRODUCT_IDENTIFIER}}", "dependencyConditions": ["Succeeded"]}],
+        "policy": {"timeout": "0.02:00:00", "retry": 1, "retryIntervalInSeconds": 30, "secureOutput": false, "secureInput": false},
+        "typeProperties": {
+          "notebookId": "{{CDC_NOTEBOOK_LOGICAL_ID}}",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "sessionTag": "pl_{{DATA_PRODUCT_IDENTIFIER}}"
+        }
+      }
+    ]
+  }
+}

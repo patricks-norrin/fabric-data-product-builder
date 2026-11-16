@@ -5,7 +5,59 @@ All notable changes to `norrin-fabric-data-product-toolpack` are documented here
 The history through version 1.0.16 was reconstructed from plugin manifest changes and the main Git history
 because earlier releases were not tagged and the project did not yet have a changelog.
 
-## [Unreleased]
+## [1.0.17] - 2026-11-16
+
+### Added
+
+- `nor-lakehouse-query`: read-only T-SQL over a product lakehouse's Delta tables through the hosted Fabric SQL
+  endpoint MCP server (`execute_query`). Covers target resolution with `fab`, discovery queries, current versus
+  historical change-history rows, endpoint error handling, and a `nor-livy-session` fallback. The plugin now ships
+  the `fabric-sqlendpoint` MCP server in `.mcp.json` and `.claude-plugin/plugin.json`.
+- `nor-pipeline-author`: renders native `pl_<id>` definitions (`nb_extract_<id>` → `nb_cdc_<id>` on `Succeeded`)
+  using notebook `.platform` logical IDs, checks their structure, and delegates publishing to `fab deploy` /
+  `fabric-cicd`. Notebook activities default to a 2-hour timeout, 1 retry, and the shared
+  session tag `pl_<id>`. `run_notebook_job.sh` publishes and runs `pl_*` names as DataPipelines.
+- `nor-environment-check` compares workspace Spark settings with `recommended_workspace_settings.json` and prints
+  each difference as a non-blocking recommendation with a short click path and reason. It starts with high
+  concurrency for pipelines (needed for the shared session tag) and for notebooks.
+- Architecture §8 Orchestration: pipelines own orchestration and scheduling, more than one notebook or activity
+  means one pipeline, master pipelines invoke product pipelines, and failures must fail the pipeline so external
+  monitoring can alert. The builder accepts a build with one `pl_<id>` run.
+- `run_notebook_job.sh start`, `wait`, and `status`. `start` reads the job instance id from
+  `fab job start --json`. `run` and `wait` poll `fab job run-status --json`, print a heartbeat line per poll, and
+  print the `failureReason` and the diagnostics next step as soon as a job fails. A `--timeout` returns exit 124
+  and leaves the Fabric job running, resumable with `wait`. `fab job start --wait` is not used because it
+  cancels the job on timeout by default. `status` reads the latest job per notebook from Fabric, and `runs`
+  delegates to `fab job run-list`.
+- `job_started` (with the item path), `job_status`, and `job_wait_timeout` manifest events, and
+  `run_manifest.py --latest-jobs`.
+- A builder "Progress and feedback" contract: per-phase status lines, bounded waits with status between them,
+  immediate failure reporting, concurrent independent chains, and a Done/Running/Blocked/Next block at the end of
+  every turn so invoking sessions can follow a background build.
+
+### Changed
+
+- Published the marketplace at `patricks-norrin/fabric-data-product-builder` on GitHub and updated the installation
+  instructions so customer environments do not need Azure DevOps repository access.
+- Raised the minimum `fab` version to 1.9.0, which the job runner relies on for `--json`.
+- Generated extract and CDC notebooks install `lakehouse-toolbelt>=1.0.7` from the hosted wheel feed in a
+  dedicated `%pip` cell instead of locating a wheel in shared OneLake.
+- Removed local-wheel upload and Environment-published toolbelt requirements from the normal builder workflow
+  and preflight; retained the wheel-upload helper for explicitly selected compatibility workflows.
+- Switched the Livy driver bootstrap to the hosted feed, surfaced bootstrap failures as command failures, and
+  handled dedicated `%pip` cells through explicit driver-only pip execution. Documented the distinction from
+  notebook `%pip`, the unverified native Livy magic support, and Environment-based alternatives.
+
+### Fixed
+
+- Pipeline failures now hand their exact workspace/item/job IDs to `nor-spark-diagnostics`. A compact read-only
+  activity-query recipe covers retries, pagination, notebook/session mapping and non-Spark/pre-session errors;
+  deployment failures remain separate from run diagnostics. No additional diagnostic scripts or dependencies.
+- Pipeline publishing uses the upstream `fabric-cicd` binding and deployment implementation through `fab deploy`,
+  rather than custom placeholder resolution. Only the selected pipeline is published; orphan deletion is disabled.
+- `nor-spark-diagnostics` reads driver stdout before stderr, because notebook cell tracebacks are written there.
+  Log content is downloaded with `curl` and an `az` token, because `fab api` cannot parse the
+  `application/octet-stream` log response. Downloads are bounded tail ranges written to a temporary file and searched.
 
 ## [1.0.16] - 2026-10-08
 

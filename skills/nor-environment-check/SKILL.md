@@ -15,7 +15,7 @@ bash "<directory of this SKILL.md>/scripts/check_environment.sh" sample_api --wo
 ```
 
 Run this installed script as-is. Do not copy it to `/tmp`, `sed` it, or substitute `fab --help` /
-`whoami`. It checks `fab >= 1.7.0` and `az >= 2.50.0` first, then `fab auth status` and a reversible
+`whoami`. It checks `fab >= 1.9.0` and `az >= 2.50.0` first, then `fab auth status` and a reversible
 local-workspace create/modify/delete probe. It continues with every independent check whose dependencies
 are available and records dependent checks as `SKIPPED`.
 If `lh_workspace_shared_resources` is missing, the script creates it at the target workspace root.
@@ -46,7 +46,7 @@ or target settings can affect later checks.
 - `ERROR ... is still the template placeholder` → a copied template kept `<environment-id>` /
   `<workspace-id>`. Derive the real GUIDs as above, or remove the `environment` block; never leave the
   placeholder in place, because it is truthy and would otherwise be baked into the generated notebooks.
-- `FAIL fab` (missing or `< 1.7.0`) → stop; ask the user to `pip install -U 'ms-fabric-cli>=1.7.0'`. The
+- `FAIL fab` (missing or `< 1.9.0`) → stop; ask the user to `pip install -U 'ms-fabric-cli>=1.9.0'`. The
   0.1.x `fab` on some PATHs is not this CLI. Never patch the check script to match another tool's output.
 - `FAIL az` (missing or `< 2.50.0`) → Livy cannot be trusted; ask the user to upgrade Azure CLI
   (`https://aka.ms/install-azure-cli`). Continue only if they explicitly accept no Livy loop.
@@ -55,6 +55,11 @@ or target settings can affect later checks.
 - `FAIL local workspace` → the agent process cannot safely create or modify the consuming project's files.
   Stop and ask the user to grant workspace write access or select a writable project directory.
 - `FAIL capacity` (Paused) → stop; the user must resume the capacity. Never start/stop capacities yourself.
+- `WARN workspace setting: ...` → not a blocker. Relay each one as printed: the setting with its current and
+  recommended value, the `How:` click path, and the one-line `Why:`. The user or a workspace admin decides; never
+  change workspace settings yourself and never block the build on them. The recommended settings live in
+  `recommended_workspace_settings.json` next to this file (`setting` is the path in the workspace Spark settings
+  API). Add a rule only when this workflow gives a concrete reason for its value.
 - `ACKNOWLEDGMENT capacity` (F2 or F4) → **stop and ask before any Spark work.** This workflow is verified on F8; on F2/F4
   sessions and jobs may fail or queue. Present the SKU and the risk, then continue only once the user either
   acknowledges proceeding on the current capacity or scales it to F8. Never scale, start, or stop a capacity
@@ -64,6 +69,6 @@ or target settings can affect later checks.
   to scale to F8. The error is deterministic — do not retry a session that failed this way.
 - `FAIL shared lakehouse` → the shared lakehouse could not be created or verified; stop and report the Fabric error.
 - `WARN project_configuration` → push it with `nor-data-product-config` (needed when configs use extra `source_configuration` attributes).
-- `WARN environment` → no Environment is configured; generated notebooks install the verified wheel from shared OneLake.
-- `FAIL environment` → a configured Environment is on the wrong capacity or does not publish its wheel; remove the stale binding or repair it.
+- `WARN environment` → no Environment is configured; generated notebooks install toolbelt from its hosted wheel feed.
+- `FAIL environment` → a configured Environment is on the wrong capacity or in another workspace; remove the stale binding or repair it. Toolbelt itself need not be published in that Environment because the runtime installation cell supplies it.
 - `FAIL livy` → tenant setting "Livy API" disabled or capacity paused; the Livy dev loop is unavailable, fall back to `fab job run` only.

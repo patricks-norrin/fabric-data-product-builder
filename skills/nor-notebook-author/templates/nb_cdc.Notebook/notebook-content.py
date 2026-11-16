@@ -17,6 +17,28 @@
 # reader and only the required reader options for the completed raw files. Incremental via `modifiedAfter`.
 # Parameters: edit `filtered_datasets` below to process a subset while debugging.
 
+# MARKDOWN ********************
+
+# ## Install the runtime dependency
+#
+# Install from the hosted wheel feed; a compatible Environment-installed package also satisfies this requirement.
+# Keep this cell before parameters and imports because Fabric restarts Python after installation.
+
+# CELL ********************
+
+%pip install --no-index -f https://nrnctopublishpip.z6.web.core.windows.net/pip/ "lakehouse-toolbelt>=1.0.7"
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Runtime parameters
+
 # PARAMETERS CELL ********************
 
 data_product_identifier = "{{DATA_PRODUCT_IDENTIFIER}}"
@@ -34,33 +56,8 @@ data_product_identifier = "{{DATA_PRODUCT_IDENTIFIER}}"
 
 # CELL ********************
 
-import subprocess
-import sys
-
 import notebookutils
 import pyspark.sql.functions as F
-
-
-def ensure_toolbelt_from_shared_resources():
-    try:
-        import lakehouse_toolbelt
-        return
-    except ImportError:
-        pass
-    workspace_name = notebookutils.runtime.context["currentWorkspaceName"]
-    library_path = f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/lh_workspace_shared_resources.Lakehouse/Files/libraries"
-    wheels = sorted(
-        wheel for wheel in notebookutils.fs.ls(library_path)
-        if wheel.name.startswith("lakehouse_toolbelt-") and wheel.name.endswith(".whl")
-    )
-    if not wheels:
-        raise RuntimeError(f"no lakehouse_toolbelt wheel under {library_path}")
-    local_path = f"/tmp/{wheels[-1].name}"
-    notebookutils.fs.cp(wheels[-1].path, f"file:{local_path}")
-    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", local_path], check=True)
-
-
-ensure_toolbelt_from_shared_resources()
 import lakehouse_toolbelt
 
 # METADATA ********************

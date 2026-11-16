@@ -1,6 +1,6 @@
 ---
 name: nor-notebook-author
-description: Author the two single-responsibility notebooks of a source-aligned data product from templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id> (raw to lakehouse_toolbelt change history). Renders unbound notebooks and bootstraps lakehouse_toolbelt from the shared OneLake wheel, then you write only source-specific extraction cells.
+description: Author the two single-responsibility notebooks of a source-aligned data product from templates in Fabric .py definition format - nb_extract_<id> (source to raw files per batch) and nb_cdc_<id> (raw to lakehouse_toolbelt change history). Renders unbound notebooks and installs lakehouse-toolbelt from its hosted wheel feed, then you write only source-specific extraction cells.
 ---
 
 # nor-notebook-author
@@ -14,9 +14,13 @@ python3 "<directory of this SKILL.md>/scripts/render_notebook.py" extract sample
 python3 "<directory of this SKILL.md>/scripts/render_notebook.py" cdc sample_api --workspace ws_example --target dev
 ```
 Writes `ws_<name>/<id>/nb_<kind>_<id>.Notebook/{notebook-content.py,.platform}` with workspace and
-lakehouse (`lh_<id>`) resolved via `fab`. Generated notebooks install the verified `lakehouse_toolbelt` wheel
-from `lh_workspace_shared_resources/Files/libraries/` when it is not already present, so they can use the
-workspace default Spark pool without an Environment binding. `nb_cdc` is complete as rendered, with an editable
+lakehouse (`lh_<id>`) resolved via `fab`. Generated notebooks have a dedicated early installation cell:
+`%pip install --no-index -f https://nrnctopublishpip.z6.web.core.windows.net/pip/ "lakehouse-toolbelt>=1.0.7"`.
+A compatible preinstalled package satisfies the requirement without `--upgrade`. No local wheel, wheel upload,
+or Environment binding is required; the workspace default Spark pool can be used. Keep parameters and imports
+after this cell because Fabric restarts Python after installation and clears previously defined variables.
+The package is a Fabric runtime dependency, not a dependency of the builder machine.
+`nb_cdc` is complete as rendered, with an editable
 dataset skip list for focused debugging. `nb_extract` has one marked cell per dataset (`# --- SOURCE SPECIFIC: <dataset> ---`)
 for you to implement.
 
@@ -24,7 +28,7 @@ for you to implement.
 - One responsibility per cell, a markdown cell before each code cell saying what and why.
 - Cells are rerunnable: same inputs → same files/rows (raw is per `batch_id`; CDC upsert is idempotent).
 - Each code cell ends by printing what it produced (paths, byte sizes, row counts). No validation logic, no exploration — that belongs elsewhere.
-- Works in both Livy and the notebook UI: no `display()`, no `%pip`, no `%run`, no `/lakehouse/default/` mounts; `spark.sql()` instead of `%%sql`.
+- Keep extraction and CDC cells compatible with Livy and the notebook UI: no `display()`, no `%run`, no `/lakehouse/default/` mounts; `spark.sql()` instead of `%%sql`. The dedicated `%pip` dependency cell is handled separately by `nor-livy-session`; do not scatter package installation through source-specific cells.
 - Never transform source data before landing. Never hardcode Fabric ids or OneLake paths. Keep credentials, queries or requests, pagination, source-specific incremental logic, and reader decisions in source-specific extraction cells. The data-product JSON is a minimal iterable handoff for extraction and CDC, not a connector framework.
 - Prefer source-side delta extraction whenever the source can filter by time, increasing key/version, cursor, change feed, or an equivalent predicate. Use the optional latest change-history timestamp scaffolded in each source-specific cell: add its source filter when non-null, otherwise run the same base request unchanged for all requested history. Never add a first-run or load-mode parameter. Snapshot only for an explicit user request, an explicitly closed timeframe, or a source proven to have no reliable incremental filter; document that reason in the cell.
 

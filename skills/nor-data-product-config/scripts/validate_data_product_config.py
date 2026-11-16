@@ -9,7 +9,7 @@ sys.path.insert(0, str(TOOLPACK_ROOT / "scripts"))
 from norrin_context import find_project_root
 
 PROJECT_ROOT = find_project_root()
-CONV = json.load(open(TOOLPACK_ROOT / "reference/architecture/conventions.json"))
+CONV = json.loads((TOOLPACK_ROOT / "reference/architecture/conventions.json").read_text(encoding="utf-8"))
 SOURCE_DEFAULTS = ["source_schema", "source_table", "filter_string", "base_url", "relative_url_template", "endpoint_query_parameters"]
 PUBLISH_DEFAULTS = ["active", "included_columns"]
 DATASET_KNOWN = {"dataset_name", "unique_identifier_columns", "exclude_columns_from_payload_checksum", "timestamp_columns_to_convert",
@@ -18,9 +18,9 @@ DATASET_KNOWN = {"dataset_name", "unique_identifier_columns", "exclude_columns_f
 
 def main(path):
     errors, warnings = [], []
-    cfg = json.load(open(path))
+    cfg = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
     proj_path = PROJECT_ROOT / "configuration/data_product/project_configuration/project_configuration.json"
-    proj = json.load(open(proj_path)) if proj_path.exists() else {}
+    proj = json.loads(proj_path.read_text(encoding="utf-8")) if proj_path.exists() else {}
     src_allowed = set(SOURCE_DEFAULTS + proj.get("source_configuration", {}).get("allowed_extra_attributes", []))
     pub_allowed = set(PUBLISH_DEFAULTS + proj.get("publish_configuration", {}).get("allowed_extra_attributes", []))
 

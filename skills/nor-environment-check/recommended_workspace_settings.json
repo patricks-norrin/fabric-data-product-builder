@@ -1,0 +1,16 @@
+[
+  {
+    "setting": "highConcurrency.notebookPipelineRunEnabled",
+    "recommended": true,
+    "label": "High concurrency for pipelines",
+    "click": "Workspace settings > Data Engineering/Science > Spark settings > High concurrency > For pipeline running multiple notebooks: On",
+    "why": "pl_<id> notebooks share one Spark session by session tag: faster runs, less capacity."
+  },
+  {
+    "setting": "highConcurrency.notebookInteractiveRunEnabled",
+    "recommended": true,
+    "label": "High concurrency for notebooks",
+    "click": "Workspace settings > Data Engineering/Science > Spark settings > High concurrency > For notebooks: On",
+    "why": "Notebooks opened for review can share a running session instead of starting one each."
+  }
+]

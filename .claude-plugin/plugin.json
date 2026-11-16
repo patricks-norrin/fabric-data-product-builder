@@ -1,8 +1,15 @@
 {
   "name": "norrin-fabric-data-product-toolpack",
   "description": "Build source-aligned data products and model Foundational and Business data products in Microsoft Fabric.",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "author": {
     "name": "Norrin"
+  },
+  "mcpServers": {
+    "fabric-sqlendpoint": {
+      "type": "http",
+      "url": "https://api.fabric.microsoft.com/v1/mcp/dataPlane/sqlEndpoint",
+      "headersHelper": "az account get-access-token --resource https://api.fabric.microsoft.com --query \"{Authorization: join(' ', ['Bearer', accessToken])}\" --output json --only-show-errors"
+    }
   }
 }

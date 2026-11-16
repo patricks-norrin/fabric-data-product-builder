@@ -11,6 +11,72 @@ CHECK = TOOLPACK_ROOT / "skills" / "nor-environment-check" / "scripts" / "check_
 
 
 class EnvironmentCheckTests(unittest.TestCase):
+    def test_connected_preflight_does_not_require_environment_toolbelt_wheel(self):
+        for with_environment in (False, True):
+            with self.subTest(with_environment=with_environment), tempfile.TemporaryDirectory() as temp:
+                project = pathlib.Path(temp)
+                configuration = project / "configuration"
+                configuration.mkdir()
+                workspace_id = "11111111-1111-1111-1111-111111111111"
+                workspace = {"workspace_name": "ws_alpha_dev"}
+                if with_environment:
+                    workspace["environment"] = {
+                        "id": "22222222-2222-2222-2222-222222222222",
+                        "workspace_id": workspace_id,
+                    }
+                (configuration / "fabric_targets.json").write_text(json.dumps({
+                    "active_target": "dev",
+                    "default_workspace": "ws_alpha",
+                    "targets": {"dev": {"workspaces": {"ws_alpha": workspace}}},
+                }), encoding="utf-8")
+                fake_bin = project / "fake-bin"
+                fake_bin.mkdir()
+                calls = project / "fab-calls"
+                (fake_bin / "fab").write_text(
+                    "#!/usr/bin/env bash\n"
+                    'printf "%s\\n" "$*" >> "$FAB_CALLS"\n'
+                    'case "$*" in\n'
+                    '  "--version") echo "fab, version 1.9.0";;\n'
+                    '  "auth status") echo "Logged In: True";;\n'
+                    f'  get*) echo "{workspace_id}";;\n'
+                    '  *capacities*) echo \'{"state":"Active","sku":"F8","displayName":"test"}\';;\n'
+                    '  *capacityId*) echo "test-capacity";;\n'
+                    '  *defaultPool.name*) echo "Starter Pool";;\n'
+                    '  *runtimeVersion*) echo "1.3";;\n'
+                    '  *spark/settings*) echo "{\\"highConcurrency\\": {\\"notebookInteractiveRunEnabled\\": true, '
+                    '\\"notebookPipelineRunEnabled\\": ${HC_PIPELINE:-true}}}";;\n'
+                    '  *pageSize*) echo "0";;\n'
+                    f'  *"type=Lakehouse"*) echo "{workspace_id}";;\n'
+                    '  exists*) echo "true";;\n'
+                    '  *) echo "unexpected fab call: $*" >&2; exit 1;;\n'
+                    'esac\n',
+                    encoding="utf-8",
+                )
+                (fake_bin / "az").write_text(
+                    "#!/usr/bin/env bash\n"
+                    'if [ "$1" = "--version" ]; then echo "azure-cli 2.61.0"; else echo "2099-01-01"; fi\n',
+                    encoding="utf-8",
+                )
+                for command in ("fab", "az"):
+                    (fake_bin / command).chmod(0o755)
+                environment = os.environ.copy()
+                environment["PATH"] = f"{fake_bin}:/usr/bin:/bin"
+                environment["FAB_CALLS"] = str(calls)
+                environment["HC_PIPELINE"] = "true" if with_environment else "false"
+
+                result = subprocess.run(
+                    ["bash", str(CHECK), "--project-root", str(project)],
+                    cwd=project, env=environment, capture_output=True, text=True,
+                )
+
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertNotIn("/libraries", calls.read_text(encoding="utf-8"))
+                if not with_environment:
+                    self.assertIn("https://nrnctopublishpip.z6.web.core.windows.net/pip/", result.stdout)
+                    self.assertIn("High concurrency for pipelines is Off, recommended On\n    How: Workspace settings >", result.stdout)
+                else:
+                    self.assertNotIn("High concurrency for pipelines is Off", result.stdout)
+
     def test_reports_independent_results_once_after_cli_blocker(self):
         with tempfile.TemporaryDirectory() as temp:
             project = pathlib.Path(temp)
@@ -58,11 +124,21 @@ class EnvironmentCheckTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 1)
             self.assertEqual(result.stdout.count("== preflight requires review"), 1)
-            self.assertIn("BLOCKERS\n- fab: 0.1.10 < 1.7.0", result.stdout)
+            self.assertIn("BLOCKERS\n- fab: 0.1.10 < 1.9.0", result.stdout)
             self.assertIn("SKIPPED\n- Fabric authentication: fab CLI unavailable", result.stdout)
             self.assertIn("PASSED\n- az: 2.61.0 (>= 2.50.0)", result.stdout)
             self.assertIn("- local workspace: read/create/modify/delete probe passed", result.stdout)
             self.assertIn("- az token for api.fabric.microsoft.com available", result.stdout)
+
+
+    def test_recommended_workspace_settings_are_complete_and_unique(self):
+        rules = json.loads((CHECK.parents[1] / "recommended_workspace_settings.json").read_text(encoding="utf-8"))
+
+        self.assertTrue(rules)
+        for rule in rules:
+            self.assertEqual(set(rule), {"setting", "recommended", "label", "click", "why"})
+            self.assertTrue(all(str(rule[key]).strip() for key in rule))
+        self.assertEqual(len({rule["setting"] for rule in rules}), len(rules))
 
 
 if __name__ == "__main__":

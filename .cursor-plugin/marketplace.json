@@ -4,12 +4,12 @@
     "name": "Norrin"
   },
   "metadata": {
-    "description": "Norrin internal plugins for Microsoft Fabric data product development."
+    "description": "Norrin plugins for Microsoft Fabric data product development."
   },
   "plugins": [
     {
       "name": "norrin-fabric-data-product-toolpack",
-      "version": "1.0.16",
+      "version": "1.0.17",
       "source": ".",
       "description": "Build source-aligned Fabric data products and apply Foundational and Business modelling conventions."
     }

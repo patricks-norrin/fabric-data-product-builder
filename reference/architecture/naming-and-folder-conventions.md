@@ -15,7 +15,7 @@ Machine-readable twin: `conventions.json` (used by `nor-environment-check` and f
 | Extract notebook (source-aligned) | `nb_extract_<data_product_identifier>` | `nb_extract_sample_api` |
 | CDC notebook (source-aligned) | `nb_cdc_<data_product_identifier>` | `nb_cdc_sample_api` |
 | Modeling notebook (foundational or business) | `nb_model_<data_product_identifier>` | `nb_model_customer`, `nb_model_spend_analysis` |
-| Pipeline (optional) | `pl_<data_product_identifier>` | `pl_sample_api` |
+| Pipeline | `pl_<data_product_identifier>` | `pl_sample_api` |
 | Raw landing | `Files/<id>/<dataset>/raw/<batch_id>/<logical_identifier>_<batch_id>.<extension>` in the product lakehouse | The stable logical identifier comes first; the filename batch ID must match its parent folder. |
 | Batch id | `YYYYMMDDTHHMMSSZ` (UTC), regex `^\d{8}T\d{6}Z$` | `20260911T081530Z` |
 | Raw file format | original source format (json/ndjson/csv/parquet), never transformed | `rates_2024.ndjson` |

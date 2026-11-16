@@ -35,13 +35,31 @@ Also agreed: every item belonging to one data product lives inside its workspace
 
 | Dependency | Used for | Notes |
 |---|---|---|
-| `fab` (Microsoft Fabric CLI, `pip install ms-fabric-cli`) | Control plane: item/folder CRUD, OneLake file copy, headless job run, REST passthrough via `fab api` | The only tool that touches Fabric for **item/file management**. **Minimum 1.7.0** (`nor-environment-check` fails below that). A PATH `fab` at 0.1.x is a different binary. |
+| `fab` (Microsoft Fabric CLI, `pip install ms-fabric-cli`) | Control plane: item/folder CRUD, OneLake file copy, headless job run, REST passthrough via `fab api` | The only tool that touches Fabric for **item/file management**. **Minimum 1.9.0** (`nor-environment-check` fails below that). A PATH `fab` at 0.1.x is a different binary. |
 | `az` (Azure CLI) | Minting the user token that a **Livy Spark session** needs | `fab`'s own token has no delegated OneLake identity inside the Spark runtime — see "Auth model" below. **Minimum 2.50.0**. One `az login` per customer tenant; no app registration. |
-| `lakehouse_toolbelt` (Python wheel) | The CDC/change-history contract every notebook runs against | Must be **≥ 1.0.7** (see gotchas). Vendored docs/examples in `reference/lakehouse_toolbelt/`. |
+| `lakehouse_toolbelt` (Fabric runtime package) | The CDC/change-history contract every notebook runs against | Must be **≥ 1.0.7** (see gotchas). Installed from the hosted wheel feed; not required on the builder machine. Vendored docs/examples in `reference/lakehouse_toolbelt/`. |
 | `python3` (stdlib only) | Config validation, notebook templating, Livy statement formatting/cell parsing | Deliberately zero third-party Python dependencies in the toolpack itself — only `fab`/`az` are external binaries. |
 | `curl` | Livy REST calls with the `az` token | `fab api` cannot be used for Livy sessions (see below). |
 | Microsoft Learn documentation integration | Canonical live reference for Fabric capabilities | Configure through the active agent harness when available; check it instead of guessing when a Fabric capability is in doubt. |
 | Fabric MCP server (`@microsoft/fabric-mcp`) | **Not used** for agent operations | Considered and deliberately dropped for the automated path: adds a Node dependency and a second, `az login`-based auth flow that duplicates what `fab` already does for item/file operations. Left as an optional human-only tool (VS Code) — see decision log. |
+| Hosted Fabric SQL endpoint MCP server (`fabric-sqlendpoint`) | Read-only data queries in `nor-lakehouse-query` | Remote and Microsoft-hosted, so no Node dependency. Shipped in the plugin's `.mcp.json` (and `.claude-plugin/plugin.json` with an `az` `headersHelper`); it reuses the user's `az login`. Data reads only; `fab` still owns every Fabric mutation. Falls back to `nor-livy-session` when absent or when the endpoint metadata is stale. |
+
+### Toolbelt installation
+
+Generated notebooks install the Fabric runtime dependency in a dedicated cell before parameters and imports:
+
+```python
+%pip install --no-index -f https://nrnctopublishpip.z6.web.core.windows.net/pip/ "lakehouse-toolbelt>=1.0.7"
+```
+
+There is no `--upgrade`: a compatible Environment-installed package can satisfy the requirement.
+Fabric notebook `%pip` restarts Python and clears prior variables, so parameter initialization must follow it.
+The feed must be reachable from the Fabric runtime; installation errors are failures, not a reason to silently
+use a different source. `--no-index` also applies to dependency resolution, so dependencies must already be
+installed or available from the feed. A local wheel and a wheel upload are no longer normal prerequisites.
+For explicitly selected local-wheel workflows, `nor-data-product-config` retains its upload helper; the runtime
+must then explicitly install that artifact or use an Environment containing it.
+Do not install toolbelt on the builder machine. Vendored upstream docs and examples remain the CDC contract.
 
 ## Auth model (why two logins, and only two)
 
@@ -105,10 +123,12 @@ lengths. If an audience genuinely needs checking, print `aud` alone.
 - Livy echoes the value of the last expression in a submitted statement; notebook/template code that calls a
   function purely for its side effect (e.g. `land_payload(...)`) assigns the result to `_` so the dev-loop
   output stays readable.
-- A Livy session with **no Environment attached** starts in ~10 seconds vs. several minutes with one; the
-  preamble's fallback (pip-install the wheel staged in `lh_workspace_shared_resources/Files/libraries/`) makes
-  `--no-environment` the faster path for iteration during development, while headless job runs still use the
-  generated notebooks install the verified wheel from shared OneLake and run on the workspace default pool.
+- A Livy session with **no Environment attached** was observed to start in ~10 seconds vs. several minutes with
+  one. Its preamble now resolves `lakehouse-toolbelt>=1.0.7` from the hosted feed using driver-side subprocess
+  pip. The cell runner handles dedicated `%pip` cells with the same driver-only mechanism; this is not a claim
+  of native Livy magic support or executor distribution. Generated notebook jobs use Fabric notebook `%pip`
+  and run on the workspace default pool. For executor libraries or inline-installation restrictions, use a
+  published Environment. See [Livy support boundaries and alternatives](../skills/nor-livy-session/SKILL.md#package-installation-support-and-alternatives).
 
 ## Safety and scope conventions
 

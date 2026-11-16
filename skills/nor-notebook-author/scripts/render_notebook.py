@@ -11,6 +11,11 @@ from norrin_context import resolve_context
 
 TPL = HERE.parent / "templates"
 
+def write_lf(path, text):
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("kind", choices=("extract", "cdc"))
@@ -26,7 +31,7 @@ def main():
         workspace=args.workspace,
         target=args.target,
     )
-    cfg = json.load(open(context.project_root / f"configuration/data_product/{dpid}/{dpid}.json"))
+    cfg = json.loads((context.project_root / f"configuration/data_product/{dpid}/{dpid}.json").read_text(encoding="utf-8"))
     name = f"nb_{kind}_{dpid}"
     logical_id = uuid.uuid5(
         uuid.UUID("c4f81ac2-0cf0-4a55-b272-e863f04ac868"),
@@ -37,18 +42,18 @@ def main():
     out_dir = context.workspace_dir / dpid / f"{name}.Notebook"
     if out_dir.exists() and not force: sys.exit(f"{out_dir} exists (use --force to overwrite; source-specific cells would be lost)")
     out_dir.mkdir(parents=True, exist_ok=True)
-    content = (TPL / f"nb_{kind}.Notebook/notebook-content.py").read_text()
+    content = (TPL / f"nb_{kind}.Notebook/notebook-content.py").read_text(encoding="utf-8")
     if kind == "extract":
-        cell_tpl = (TPL / "nb_extract.Notebook/source_specific_cell.py").read_text()
+        cell_tpl = (TPL / "nb_extract.Notebook/source_specific_cell.py").read_text(encoding="utf-8")
         cells = []
         for ds in cfg["datasets"]:
             cells.append(cell_tpl.replace("{{DATASET_NAME}}", ds["dataset_name"]))
         content = content.replace("{{SOURCE_SPECIFIC_CELLS}}\n", "".join(cells))
     for k, v in values.items(): content = content.replace("{{" + k + "}}", v)
-    (out_dir / "notebook-content.py").write_text(content)
-    platform = (TPL / "platform.json").read_text()
+    write_lf(out_dir / "notebook-content.py", content)
+    platform = (TPL / "platform.json").read_text(encoding="utf-8")
     for key, value in values.items(): platform = platform.replace("{{" + key + "}}", value)
-    (out_dir / ".platform").write_text(platform)
+    write_lf(out_dir / ".platform", platform)
     print(f"rendered {out_dir} (workspace {context.workspace_name}, environment {context.environment_id or '-'})")
     if kind == "extract": print("next: implement the '# --- SOURCE SPECIFIC' cells, then run them with nor-livy-session")
 

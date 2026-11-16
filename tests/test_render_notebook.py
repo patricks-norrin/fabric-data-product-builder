@@ -9,6 +9,7 @@ import unittest
 
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parents[1]
 RENDER = TOOLPACK_ROOT / "skills" / "nor-notebook-author" / "scripts" / "render_notebook.py"
+CELLS = TOOLPACK_ROOT / "skills" / "nor-livy-session" / "scripts" / "notebook_cells.py"
 
 
 class RenderNotebookTests(unittest.TestCase):
@@ -94,7 +95,6 @@ class RenderNotebookTests(unittest.TestCase):
             self.assertTrue(rendered.is_file())
             rendered_content = rendered.read_text(encoding="utf-8")
             self.assertIn("things", rendered_content)
-            self.assertIn("ensure_toolbelt_from_shared_resources", rendered_content)
             self.assertIn('batch_id = ""', rendered_content)
             self.assertIn("raw_batch_path", rendered_content)
             self.assertIn('raw_file_name_stem = f"things_{batch_id}"', rendered_content)
@@ -127,6 +127,29 @@ class RenderNotebookTests(unittest.TestCase):
             )
             self.assertTrue(cdc_rendered.is_file())
             cdc_content = cdc_rendered.read_text(encoding="utf-8")
+            for notebook in (rendered, cdc_rendered):
+                with self.subTest(notebook=notebook.name, kind=notebook.parent.name):
+                    cells = json.loads(subprocess.check_output(
+                        [sys.executable, str(CELLS), str(notebook), "--json"], text=True
+                    ))
+                    code = [cell["source"] for cell in cells if cell["type"] != "markdown"]
+                    install_cells = [source for source in code if source.startswith("%pip ")]
+                    self.assertEqual(install_cells, [
+                        '%pip install --no-index -f '
+                        'https://nrnctopublishpip.z6.web.core.windows.net/pip/ '
+                        '"lakehouse-toolbelt>=1.0.7"'
+                    ])
+                    install_index = code.index(install_cells[0])
+                    import_index = next(i for i, source in enumerate(code) if "import lakehouse_toolbelt" in source)
+                    parameters = next(cell["source"] for cell in cells if cell["type"] == "parameters")
+                    self.assertLess(install_index, code.index(parameters))
+                    self.assertLess(install_index, import_index)
+                    for source in code:
+                        if source not in install_cells:
+                            compile(source, str(notebook), "exec")
+                    content = notebook.read_text(encoding="utf-8")
+                    self.assertNotIn("Files/libraries", content)
+                    self.assertNotIn("ensure_toolbelt_from_shared_resources", content)
             self.assertIn('data_product_identifier = "sample_api"', cdc_content)
             self.assertIn("datasets_to_skip = []", cdc_content)
             self.assertIn("filtered_datasets = {", cdc_content)

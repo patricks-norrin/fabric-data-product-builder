@@ -22,24 +22,20 @@ try:  # assertion-style: does this session have a delegated OneLake identity?
     notebookutils.fs.ls("Files"); _report["onelake_access"] = True
 except Exception as e:
     _report["onelake_access"] = f"FAILED: {str(e).splitlines()[0][:120]}"
-def _install_toolbelt_from_shared_resources():
-    """Fallback when no Environment is attached: install the wheel staged in lh_workspace_shared_resources/Files/libraries."""
+def _install_toolbelt():
+    """Resolve the minimum runtime requirement without upgrading a compatible installation."""
     import subprocess, sys
-    libraries = f"abfss://{_ctx['currentWorkspaceName']}@onelake.dfs.fabric.microsoft.com/lh_workspace_shared_resources.Lakehouse/Files/libraries"
-    wheels = [f for f in notebookutils.fs.ls(libraries) if f.name.startswith("lakehouse_toolbelt") and f.name.endswith(".whl")]
-    if not wheels:
-        raise RuntimeError(f"no lakehouse_toolbelt wheel under {libraries}")
-    local = f"/tmp/{wheels[-1].name}"
-    notebookutils.fs.cp(wheels[-1].path, f"file:{local}")
-    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", local], check=True)
-    return wheels[-1].name
+    subprocess.run([
+        sys.executable, "-m", "pip", "install", "--disable-pip-version-check",
+        "--no-index", "-f", "https://nrnctopublishpip.z6.web.core.windows.net/pip/",
+        "lakehouse-toolbelt>=1.0.7",
+    ], check=True)
+    import importlib
+    importlib.invalidate_caches()
 
 try:
-    try:
-        import lakehouse_toolbelt
-    except ImportError:
-        _report["wheel_installed"] = _install_toolbelt_from_shared_resources()
-        import lakehouse_toolbelt
+    _install_toolbelt()
+    import lakehouse_toolbelt
     # Internal module names vary across toolbelt versions; patch whichever exist, skip the rest.
     import importlib
     _submodule_names = [
@@ -56,15 +52,12 @@ try:
         if hasattr(_m, "notebookutils"):
             _m.notebookutils = _shim
         _patched.append(_name)
-    try:
-        import subprocess as _sp
-        _pip_version = _sp.run(["pip", "show", "lakehouse-toolbelt"], capture_output=True, text=True).stdout
-        _version = next((l.split(":", 1)[1].strip() for l in _pip_version.splitlines() if l.startswith("Version:")), "unknown")
-    except Exception:
-        _version = getattr(lakehouse_toolbelt, "__version__", "imported")
-    _report["lakehouse_toolbelt"] = _version
+    from importlib.metadata import version
+    _report["lakehouse_toolbelt"] = version("lakehouse-toolbelt")
     if _missing:
         _report["lakehouse_toolbelt_missing_submodules"] = _missing
-except Exception as e:  # environment not attached or wheel missing
+except Exception as e:
     _report["lakehouse_toolbelt"] = f"IMPORT FAILED: {e!r}"
+    print("PREAMBLE " + json.dumps(_report))
+    raise
 print("PREAMBLE " + json.dumps(_report))

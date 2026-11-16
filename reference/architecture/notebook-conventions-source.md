@@ -176,4 +176,4 @@ if df.rdd.isEmpty():  # Never reached when modifiedAfter filters everything
 - Never hardcode workspace/lakehouse IDs
 - Use parameters for paths, dates, thresholds
 - Use `notebookutils.fs` for file operations (see File Operations section above)
-- Use `notebookutils.notebook.run()` for orchestrating notebook executions
+- Orchestrate notebook executions with the product pipeline `pl_<id>`, not `notebookutils.notebook.run()`

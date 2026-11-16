@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Livy session driver. Control plane (ids) via fab; the Spark session itself is created with an Azure CLI user token,
 # because Fabric's Spark runtime only receives a delegated OneLake identity from that token (see SKILL.md).
-HERE="$(cd "$(dirname "$0")" && pwd)"
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]//\\//}")" && pwd)"
 TOOLPACK_ROOT="$(cd "$HERE/../../.." && pwd)"
 source "$TOOLPACK_ROOT/scripts/fab_common.sh"
 parse_context_args "$@"; set -- "${CONTEXT_ARGS[@]}"
@@ -15,7 +15,7 @@ livy() { # livy <METHOD> <path-after-/v1/> [bodyfile]
   if [ -n "$b" ]; then curl -sS -X "$m" -H "Authorization: Bearer $t" -H "Content-Type: application/json" --data-binary "@$b" "$API/$p"; else curl -sS -X "$m" -H "Authorization: Bearer $t" "$API/$p"; fi
 }
 jq_() { python3 -c "import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {'d': d}))" "$1" 2>/dev/null; }
-load_state() { [ -f "$STATE" ] || die "no session (run: livy_session.sh create <lakehouse_name>)"; BASE=$(python3 -c "import json;print(json.load(open('$STATE'))['base'])"); SID=$(python3 -c "import json;print(json.load(open('$STATE'))['session_id'])"); }
+load_state() { [ -f "$STATE" ] || die "no session (run: livy_session.sh create <lakehouse_name>)"; BASE=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['base'])" "$STATE"); SID=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['session_id'])" "$STATE"); }
 session_json() { livy GET "$BASE/$SID"; }
 wait_idle() {
   local t0=$(date +%s)
@@ -41,7 +41,7 @@ submit() { # submit <kind> <codefile>
 
 case "$CMD" in
   create)
-    LH="${1:?lakehouse_name required}"; need_target; [ "${2:-}" = "--no-environment" ] && ENVIRONMENT_ID="" && ENVIRONMENT_NAME="none (wheel installed in-session)"
+    LH="${1:?lakehouse_name required}"; need_target; [ "${2:-}" = "--no-environment" ] && ENVIRONMENT_ID="" && ENVIRONMENT_NAME="none (toolbelt installed from hosted feed)"
     LH_ID=$(item_id "$LH" Lakehouse); [ -n "$LH_ID" ] || die "lakehouse $LH not found in $WORKSPACE_NAME"
     BASE="workspaces/$WORKSPACE_ID/lakehouses/$LH_ID/livyapi/versions/2023-12-01/sessions"; BODY="$STATE_DIR/session_body.json"
     record_run_event livy_create_requested "workspace_id=$WORKSPACE_ID" "lakehouse_id=$LH_ID" "lakehouse=$LH"
@@ -53,22 +53,22 @@ json.dump(body,open(sys.argv[1],"w"))
 PY
     SID=$(livy POST "$BASE" "$BODY" | jq_ "d['id']")
     [[ "$SID" =~ ^[0-9a-f-]{36}$ ]] || { record_run_event livy_create_failed "workspace_id=$WORKSPACE_ID" "lakehouse_id=$LH_ID"; die "session create failed"; }
-    python3 -c "import json;json.dump({'base':'$BASE','session_id':'$SID','lakehouse':'$LH','workspace_name':'$WORKSPACE_NAME','environment':'$ENVIRONMENT_ID'},open('$STATE','w'))"
+    python3 -c "import json,sys;json.dump(dict(zip(['base','session_id','lakehouse','workspace_name','environment'],sys.argv[2:])),open(sys.argv[1],'w'))" "$STATE" "$BASE" "$SID" "$LH" "$WORKSPACE_NAME" "$ENVIRONMENT_ID"
     record_run_event livy_created "session_id=$SID" "workspace_id=$WORKSPACE_ID" "lakehouse_id=$LH_ID" "environment_id=${ENVIRONMENT_ID:-}"
     info "session $SID on $LH (environment ${ENVIRONMENT_NAME:-none})"; wait_idle
-    sed "s/__WORKSPACE_NAME__/$WORKSPACE_NAME/" "$HERE/../preamble/livy_preamble.py" > "$STATE_DIR/preamble.py"; submit pyspark "$STATE_DIR/preamble.py" ;;
+    python3 -c "import sys; open(sys.argv[2],'w',encoding='utf-8',newline='\n').write(open(sys.argv[1],encoding='utf-8').read().replace('__WORKSPACE_NAME__',sys.argv[3]))" "$HERE/../preamble/livy_preamble.py" "$STATE_DIR/preamble.py" "$WORKSPACE_NAME"; submit pyspark "$STATE_DIR/preamble.py" ;;
   status) load_state; session_json | jq_ "{'state': d.get('state'), 'inner': (d.get('fabricSessionStateInfo') or {}).get('state')}" ;;
   statement) load_state; if [ "${1:-}" = "-f" ]; then submit pyspark "$2"; else printf '%s' "$1" > "$STATE_DIR/adhoc.py"; submit pyspark "$STATE_DIR/adhoc.py"; fi ;;
   run-cells)
     load_state; NB="${1:?notebook-content.py required}"; SEL="${2:-all}"; KEEP=0; [ "${3:-}" = "--keep-going" ] && KEEP=1
     python3 "$HERE/notebook_cells.py" "$NB" --json > "$STATE_DIR/cells.json"
     mapfile -t IDX < <(python3 -c "
-import json,sys; cells=json.load(open('$STATE_DIR/cells.json')); sel='$SEL'
+import json,sys; cells=json.load(open(sys.argv[1])); sel=sys.argv[2]
 want=[c['index'] for c in cells if c['type']!='markdown'] if sel=='all' else [int(x) for x in sel.split(',')]
-print('\n'.join(str(i) for i in want))")
+print('\n'.join(str(i) for i in want))" "$STATE_DIR/cells.json" "$SEL")
     RC=0; for i in "${IDX[@]}"; do
       python3 -c "
-import json; c=next(c for c in json.load(open('$STATE_DIR/cells.json')) if c['index']==$i); open('$STATE_DIR/cell.py','w',encoding='utf-8').write(c['source']); open('$STATE_DIR/cell.kind','w').write(c['kind']); print(f\"\n=== cell {c['index']} [{c['type']}/{c['kind']}] {c['title']}\")"
+import json,sys; d=sys.argv[1]; c=next(c for c in json.load(open(d+'/cells.json')) if c['index']==int(sys.argv[2])); open(d+'/cell.py','w',encoding='utf-8').write(c.get('livy_source', c['source'])); open(d+'/cell.kind','w').write(c['kind']); print(f\"\n=== cell {c['index']} [{c['type']}/{c['kind']}] {c['title']}\")" "$STATE_DIR" "$i"
       if ! submit "$(cat "$STATE_DIR/cell.kind")" "$STATE_DIR/cell.py"; then RC=1; [ "$KEEP" -eq 1 ] || { echo "stopped at cell $i"; break; }; fi
     done
     [ "$RC" -eq 0 ] && CELL_STATUS=completed || CELL_STATUS=failed

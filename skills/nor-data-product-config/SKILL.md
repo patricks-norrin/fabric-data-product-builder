@@ -30,7 +30,11 @@ bash "<directory of this SKILL.md>/scripts/push_data_product_config.sh" sample_a
 Idempotent: existing items/dirs are left alone. If the shared resources lakehouse is absent, it is created at
 workspace root. Prints the OneLake path and the lakehouse id (needed for notebook default-lakehouse binding).
 
-Stage the runtime wheel used by generated notebooks:
+Generated notebooks install `lakehouse-toolbelt>=1.0.7` from
+`https://nrnctopublishpip.z6.web.core.windows.net/pip/` at runtime. Do not locate or upload a local wheel
+as a prerequisite for the normal build, and do not install toolbelt on the builder machine.
+
+For an explicitly selected local-wheel compatibility workflow, the upload helper remains available:
 
 ```bash
 bash "<directory of this SKILL.md>/scripts/push_toolbelt_wheel.sh" \
@@ -39,4 +43,5 @@ bash "<directory of this SKILL.md>/scripts/push_toolbelt_wheel.sh" \
 
 The wheel must be version 1.0.7 or newer and is uploaded to
 `lh_workspace_shared_resources/Files/libraries/`. Use a verified artifact supplied by the project or toolbelt
-release process.
+release process. Uploading alone does not select this source: the runtime must explicitly install that
+artifact or use an Environment containing it. Do not silently fall back to a staged wheel after a feed error.

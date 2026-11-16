@@ -2,6 +2,19 @@
 # Shared helpers for fab-based scripts. Source this file.
 set -o pipefail
 
+# Windows (Git Bash): keep "/ws.Workspace/..." item paths from being rewritten into C:/Program Files/Git/..., and keep
+# Python I/O UTF-8. Harmless elsewhere.
+export MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*" PYTHONUTF8=1
+# Git Bash on Windows often has only `python` or `py`; `python3` may be missing or a Microsoft Store stub.
+if ! python3 -c 'import sys' >/dev/null 2>&1; then
+  for _py in python py; do
+    if command -v "$_py" >/dev/null 2>&1 && "$_py" -c 'import sys; sys.exit(sys.version_info[0] != 3)' >/dev/null 2>&1; then
+      eval "python3() { $_py \"\$@\"; }"; break
+    fi
+  done
+  unset _py
+fi
+
 TOOLPACK_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONTEXT_SCRIPT="$TOOLPACK_ROOT/scripts/norrin_context.py"
 CONTEXT_WORKSPACE=""

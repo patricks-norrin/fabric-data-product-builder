@@ -94,11 +94,24 @@ Already installed in VS Code? Start with a request above. For a new CLI installa
 and install the plugin:
 
 ```bash
-copilot plugin marketplace add https://naksfi@dev.azure.com/naksfi/Fabric/_git/nor-data-product-builder
+copilot plugin marketplace add https://github.com/patricks-norrin/fabric-data-product-builder.git
 copilot plugin install norrin-fabric-data-product-toolpack@norrin-fabric-plugins
 ```
 
-Marketplace registration requires Git credentials with access to the Azure DevOps repository.
+The marketplace is public; no Azure DevOps repository access is required.
+
+### Follow a Running Build
+
+The agent posts a status line at each phase and polls headless notebook jobs with a heartbeat, so a long
+Fabric run never looks silent. When the agent runs as a background subagent, ask it for a status, or run the
+job table directly from the project:
+
+```bash
+bash <installed toolpack>/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh status
+```
+
+It reads the current state of the latest job of each notebook from Fabric and prints its status, start/end
+times, job id, and failure reason.
 
 ## Further Reading
 

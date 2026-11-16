@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Validate, push config (+ project_configuration.json) to lh_workspace_shared_resources, provision folder + lh_<id>.
 # Usage: push_data_product_config.sh <data_product_identifier> [--no-provision] [--workspace ws_name] [--target profile]
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]//\\//}")" && pwd)"
 TOOLPACK_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$TOOLPACK_ROOT/scripts/fab_common.sh"
 parse_context_args "$@"; set -- "${CONTEXT_ARGS[@]}"

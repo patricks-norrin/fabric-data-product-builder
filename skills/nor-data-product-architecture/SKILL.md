@@ -1,6 +1,6 @@
 ---
 name: nor-data-product-architecture
-description: "Norrin architecture for Microsoft Fabric data products. Use before designing, naming or creating anything: deciding data product boundaries (one source system is one product, datasets inside), lakehouse and workspace responsibilities (ws_extract, lh_<id>, lh_workspace_shared_resources), raw-as-insurance landing, when CDC change history applies versus snapshot or non-tabular exceptions, naming and folder conventions."
+description: "Norrin architecture for Microsoft Fabric data products. Use before designing, naming or creating anything: deciding data product boundaries (one source system is one product, datasets inside), lakehouse and workspace responsibilities (ws_extract, lh_<id>, lh_workspace_shared_resources), raw-as-insurance landing, when CDC change history applies versus snapshot or non-tabular exceptions, naming and folder conventions, and pipeline orchestration and scheduling."
 ---
 
 # Norrin data product architecture — decision rules
@@ -23,7 +23,7 @@ file's own directory, inside the installed toolpack — not to the consuming pro
   source-aligned products in the current `nor-data-product-builder` agent.
 
 ## 2. Source-aligned product contents
-raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` (+ optional `pl_<id>`), all inside workspace folder `<id>`.
+raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` + `pl_<id>` (extract → CDC), all inside workspace folder `<id>`.
 
 ## 3. Raw is insurance
 Land exactly what the source returned: `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/<logical_identifier>_<batch_id>.<extension>`. The stable logical identifier comes first, and the filename's `<batch_id>` must match its parent batch folder so the file remains attributable outside that folder. Keep API payload format (JSON/NDJSON); export relational tables as Parquet snapshots or incremental slices, never CSV. Never rename columns, cast types, or filter before landing. Reprocessing history = re-reading raw.
@@ -51,3 +51,11 @@ Source-side delta extraction is the default, not an optional optimization. First
 Do not add `first_run`, `initial_load`, `load_mode`, or equivalent mode parameters. If an unscoped base request is not allowed, use the source's documented earliest value; if no objective value exists, ask the user rather than inventing one. CDC reads raw with `modifiedAfter` and wraps `.load()` in try/except for "Unable to infer schema" (no new files).
 
 Fall back to full snapshots only when (1) the user explicitly asks for snapshots, (2) the user explicitly requests a closed interval, or (3) source documentation and inspection establish that no reliable incremental filter exists. Document which exception applies beside the extraction code. A lower bound alone remains open-ended and continues incrementally; only an explicit upper boundary makes the requested interval closed. Never invent a boundary the user did not provide.
+
+## 8. Orchestration
+Pipelines own orchestration and scheduling. Author them with `nor-pipeline-author`.
+1. **More than one notebook or activity = one pipeline** named `pl_<id>` in the product folder. A source-aligned product always has one: `nb_extract_<id>` → `nb_cdc_<id>`.
+2. **Schedule pipelines, never notebooks.** A single-notebook product gets a `pl_<id>` once it needs a schedule. Do not chain product notebooks with `notebookutils.notebook.run()`.
+3. **Master pipelines orchestrate business data products.** They call the pipelines of the products they depend on (`InvokePipeline`), never another product's notebooks, so each product keeps owning its own steps.
+4. **Failures stay visible.** Connect activities with `Succeeded`. A failed activity must fail the pipeline: no `Completed` dependencies that run the next step anyway, and no failure branches that end in success. External monitoring alerts continuous services from pipeline run status; it is outside this toolpack and only works when failures are not swallowed.
+5. **Sane defaults, otherwise minimal.** Notebook activities time out after 2 hours, retry once, and share one high-concurrency session through a common session tag (`pl_<id>`). No parameters or variables unless the source requires them.

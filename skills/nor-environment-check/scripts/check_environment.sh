@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Read-only environment check. Usage: check_environment.sh [data_product_identifier] [--workspace ws_name] [--target profile]
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]//\\//}")" && pwd)"
 TOOLPACK_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$TOOLPACK_ROOT/scripts/fab_common.sh"
 VERSION_HELPER="$TOOLPACK_ROOT/scripts/cli_version.py"
-MIN_FAB="1.7.0"
+MIN_FAB="1.9.0"
 MIN_AZ="2.50.0"
 parse_context_args "$@"; set -- "${CONTEXT_ARGS[@]}"
 DP="${1:-}"
@@ -144,6 +144,31 @@ if [ "$WORKSPACE_READY" -eq 1 ]; then
       ;;
     *) pass "pool: $POOL (runtime $RUNTIME) on $CAP_SKU";;
   esac
+  SPARK_SETTINGS=$(fab_api "workspaces/$WORKSPACE_ID/spark/settings" -q "text")
+  while IFS=$'\t' read -r verdict text; do
+    case "$verdict" in
+      PASS) pass "workspace setting: $text" ;;
+      RECOMMEND) warn "workspace setting: ${text//$'\x1f'/$'\n    '}" ;;
+    esac
+  done < <(printf '%s' "$SPARK_SETTINGS" | python3 -c '
+import json, sys
+rules = json.load(open(sys.argv[1]))
+try:
+    settings = json.load(sys.stdin)
+except ValueError:
+    print("RECOMMEND\tcould not read workspace Spark settings; review them manually"); sys.exit()
+def show(value):
+    return {True: "On", False: "Off"}.get(value, "unknown" if value is None else value)
+for rule in rules:
+    value = settings
+    for key in rule["setting"].split("."):
+        value = value.get(key) if isinstance(value, dict) else None
+    label, current, wanted = rule["label"], show(value), show(rule["recommended"])
+    if value == rule["recommended"]:
+        print("PASS\t%s: %s" % (label, current))
+    else:
+        print("RECOMMEND\t%s is %s, recommended %s\x1fHow: %s\x1fWhy: %s" % (label, current, wanted, rule["click"], rule["why"]))
+' "$SCRIPT_DIR/../recommended_workspace_settings.json")
 
   SHARED_ID=$(item_id lh_workspace_shared_resources Lakehouse)
   SHARED_PATH="$WORKSPACE_PATH/lh_workspace_shared_resources.Lakehouse"
@@ -168,13 +193,9 @@ if [ "$WORKSPACE_READY" -eq 1 ]; then
   if [ -n "$ENVIRONMENT_ID" ]; then
     ENV_CAP=$(fab_api_q "text.capacityId" "workspaces/$ENVIRONMENT_WORKSPACE_ID")
     [ "$ENV_CAP" = "$CAP_ID" ] && pass "environment workspace on same capacity" || fail "environment workspace capacity $ENV_CAP != $CAP_ID"
-    WHEELS=$(fab_api_q "text.customLibraries.wheelFiles | join(',', @)" "workspaces/$ENVIRONMENT_WORKSPACE_ID/environments/$ENVIRONMENT_ID/libraries")
-    case "$WHEELS" in *lakehouse_toolbelt*) pass "environment $ENVIRONMENT_NAME publishes $WHEELS";; *) fail "environment $ENVIRONMENT_NAME: no lakehouse_toolbelt wheel (got '$WHEELS')";; esac
-    VER=$(echo "$WHEELS" | grep -o 'lakehouse_toolbelt-[0-9.]*[0-9]' | head -1 | sed 's/lakehouse_toolbelt-//')
-    python3 -c "import sys; v=tuple(int(x) for x in '$VER'.split('.')); sys.exit(0 if v>=(1,0,7) else 1)" 2>/dev/null && pass "toolbelt wheel $VER >= 1.0.7 (project_configuration support)" || fail "toolbelt wheel '$VER' < 1.0.7: configs with extra source_configuration attributes will fail (SourceConfiguration/filter_string bug)"
     [ "$ENVIRONMENT_WORKSPACE_ID" = "$WORKSPACE_ID" ] && pass "environment lives in the target workspace" || fail "environment is in another workspace: Spark session acquisition fails for notebooks and Livy (copy it with fab cp)"
   else
-    warn "no environment configured for $WORKSPACE_KEY; notebooks will install lakehouse_toolbelt from shared resources"
+    warn "no environment configured for $WORKSPACE_KEY; notebooks will install lakehouse-toolbelt>=1.0.7 from https://nrnctopublishpip.z6.web.core.windows.net/pip/"
   fi
 
   if [ -n "$SHARED_ID" ]; then

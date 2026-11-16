@@ -17,6 +17,8 @@ This is an index, not a second copy of the skill procedures. The linked `SKILL.m
 | [`nor-data-product-config`](../skills/nor-data-product-config/SKILL.md) | Configuration authoring, validation, push, and product provisioning |
 | [`nor-rest-extraction`](../skills/nor-rest-extraction/SKILL.md) | REST API discovery and source-specific extraction implementation |
 | [`nor-notebook-author`](../skills/nor-notebook-author/SKILL.md) | Render extract and CDC notebooks from the packaged templates |
+| [`nor-pipeline-author`](../skills/nor-pipeline-author/SKILL.md) | Render and check the `pl_<id>` orchestration pipeline with portable item references |
 | [`nor-livy-session`](../skills/nor-livy-session/SKILL.md) | Cell-by-cell notebook development through Livy |
-| [`nor-notebook-publish-and-run`](../skills/nor-notebook-publish-and-run/SKILL.md) | Publish notebook definitions and run them headlessly |
+| [`nor-lakehouse-query`](../skills/nor-lakehouse-query/SKILL.md) | Read-only T-SQL over lakehouse Delta tables through the Fabric SQL endpoint MCP server |
+| [`nor-notebook-publish-and-run`](../skills/nor-notebook-publish-and-run/SKILL.md) | Publish notebook and pipeline definitions and run them headlessly |
 | [`nor-spark-diagnostics`](../skills/nor-spark-diagnostics/SKILL.md) | Read-only evidence collection for failed, slow, or stuck Spark runs |

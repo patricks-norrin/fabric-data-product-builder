@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Upload a lakehouse_toolbelt wheel to shared OneLake libraries.
 # Usage: push_toolbelt_wheel.sh /path/to/lakehouse_toolbelt-1.0.7-py3-none-any.whl [--workspace ws_name] [--target profile]
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]//\\//}")" && pwd)"
 TOOLPACK_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 source "$TOOLPACK_ROOT/scripts/fab_common.sh"
 parse_context_args "$@"; set -- "${CONTEXT_ARGS[@]}"
