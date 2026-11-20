@@ -5,7 +5,7 @@ description: Author the pl_<id> Fabric DataPipeline that orchestrates a data pro
 
 # nor-pipeline-author
 
-Pipelines own orchestration and scheduling (`nor-data-product-architecture` §8). Run `scripts/` next to this file.
+Pipelines own orchestration and scheduling (`nor-data-product-architecture` §8). Run `scripts/` next to this file with `python3` (Linux/WSL) or `python` (Windows).
 
 ## Render
 ```bash

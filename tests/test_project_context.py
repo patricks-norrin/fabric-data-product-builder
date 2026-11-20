@@ -102,15 +102,6 @@ class ProjectContextTests(unittest.TestCase):
             self.assertEqual(context.workspace_key, "ws_beta")
             self.assertEqual(context.workspace_name, "ws_beta_prod")
 
-    def test_legacy_single_workspace_config_has_migration_error(self):
-        with tempfile.TemporaryDirectory() as temp:
-            project = pathlib.Path(temp)
-            configuration = project / "configuration"
-            configuration.mkdir()
-            (configuration / "target_workspace.json").write_text("{}", encoding="utf-8")
-
-            with self.assertRaisesRegex(ValueError, "retired single-workspace format"):
-                resolve_context(project_root=project)
 
     def test_missing_target_file_names_the_template(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -123,53 +114,7 @@ class ProjectContextTests(unittest.TestCase):
             self.assertIn("templates/project/configuration/fabric_targets.json", message)
             self.assertIn("Never invent", message)
 
-    def test_unedited_environment_placeholders_are_rejected(self):
-        for field, placeholder in (("id", "<environment-id>"), ("workspace_id", "<workspace-id>")):
-            with self.subTest(field=field), tempfile.TemporaryDirectory() as temp:
-                project = pathlib.Path(temp)
-                write_targets(project)
-                target_file = project / "configuration" / "fabric_targets.json"
-                config = json.loads(target_file.read_text(encoding="utf-8"))
-                config["targets"]["dev"]["workspaces"]["ws_alpha"]["environment"][field] = placeholder
-                target_file.write_text(json.dumps(config), encoding="utf-8")
 
-                with self.assertRaisesRegex(ValueError, "still the template placeholder"):
-                    resolve_context(project_root=project)
-
-    def test_shell_helper_resolves_external_project(self):
-        with tempfile.TemporaryDirectory() as temp:
-            project = pathlib.Path(temp)
-            subprocess.run(["git", "init", "-q", str(project)], check=True)
-            write_targets(project)
-            nested = project / "nested"
-            nested.mkdir()
-
-            result = subprocess.run(
-                [
-                    "bash",
-                    "-c",
-                    (
-                        f"source {TOOLPACK_ROOT / 'scripts' / 'fab_common.sh'}; "
-                        "parse_context_args --workspace ws_beta --target prod; "
-                        "resolve_context; "
-                        "printf '%s\\n%s\\n%s\\n%s\\n' \"$PROJECT_ROOT\" \"$WORKSPACE_DIR\" \"$SCRATCH_DIR\" \"$WORKSPACE_PATH\""
-                    ),
-                ],
-                cwd=nested,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-
-            self.assertEqual(
-                result.stdout.splitlines(),
-                [
-                    str(project.resolve()),
-                    str(project / "ws_beta"),
-                    str(project / ".scratch" / "ws_beta"),
-                    "/ws_beta_prod.Workspace",
-                ],
-            )
 
 
 if __name__ == "__main__":

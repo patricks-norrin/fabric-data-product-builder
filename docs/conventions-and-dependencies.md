@@ -38,8 +38,8 @@ Also agreed: every item belonging to one data product lives inside its workspace
 | `fab` (Microsoft Fabric CLI, `pip install ms-fabric-cli`) | Control plane: item/folder CRUD, OneLake file copy, headless job run, REST passthrough via `fab api` | The only tool that touches Fabric for **item/file management**. **Minimum 1.9.0** (`nor-environment-check` fails below that). A PATH `fab` at 0.1.x is a different binary. |
 | `az` (Azure CLI) | Minting the user token that a **Livy Spark session** needs | `fab`'s own token has no delegated OneLake identity inside the Spark runtime — see "Auth model" below. **Minimum 2.50.0**. One `az login` per customer tenant; no app registration. |
 | `lakehouse_toolbelt` (Fabric runtime package) | The CDC/change-history contract every notebook runs against | Must be **≥ 1.0.7** (see gotchas). Installed from the hosted wheel feed; not required on the builder machine. Vendored docs/examples in `reference/lakehouse_toolbelt/`. |
-| `python3` (stdlib only) | Config validation, notebook templating, Livy statement formatting/cell parsing | Deliberately zero third-party Python dependencies in the toolpack itself — only `fab`/`az` are external binaries. |
-| `curl` | Livy REST calls with the `az` token | `fab api` cannot be used for Livy sessions (see below). |
+| Python 3.10+ (stdlib only) | Every toolpack script: preflight, config validation and push, notebook and pipeline rendering, publish/run, Livy | Already present because `fab` is a pip package. Zero third-party dependencies. Run `python3` on Linux/WSL and `python` on Windows, with native paths; no Bash or Git Bash is needed. Scripts call `fab` with `--json` and read its result envelope. |
+| `curl` | Optional source HTTP sampling | Not needed by any script; Livy and log downloads use standard-library HTTP with the `az` token. |
 | Microsoft Learn documentation integration | Canonical live reference for Fabric capabilities | Configure through the active agent harness when available; check it instead of guessing when a Fabric capability is in doubt. |
 | Fabric MCP server (`@microsoft/fabric-mcp`) | **Not used** for agent operations | Considered and deliberately dropped for the automated path: adds a Node dependency and a second, `az login`-based auth flow that duplicates what `fab` already does for item/file operations. Left as an optional human-only tool (VS Code) — see decision log. |
 | Hosted Fabric SQL endpoint MCP server (`fabric-sqlendpoint`) | Read-only data queries in `nor-lakehouse-query` | Remote and Microsoft-hosted, so no Node dependency. Shipped in the plugin's `.mcp.json` (and `.claude-plugin/plugin.json` with an `az` `headersHelper`); it reuses the user's `az login`. Data reads only; `fab` still owns every Fabric mutation. Falls back to `nor-livy-session` when absent or when the endpoint metadata is stale. |
@@ -56,9 +56,8 @@ There is no `--upgrade`: a compatible Environment-installed package can satisfy 
 Fabric notebook `%pip` restarts Python and clears prior variables, so parameter initialization must follow it.
 The feed must be reachable from the Fabric runtime; installation errors are failures, not a reason to silently
 use a different source. `--no-index` also applies to dependency resolution, so dependencies must already be
-installed or available from the feed. A local wheel and a wheel upload are no longer normal prerequisites.
-For explicitly selected local-wheel workflows, `nor-data-product-config` retains its upload helper; the runtime
-must then explicitly install that artifact or use an Environment containing it.
+installed or available from the feed. A local wheel and a wheel upload are not prerequisites; when a project
+needs a private build, publish it in an Environment.
 Do not install toolbelt on the builder machine. Vendored upstream docs and examples remain the CDC contract.
 
 ## Auth model (why two logins, and only two)
@@ -71,8 +70,10 @@ Do not install toolbelt on the builder machine. Vendored upstream docs and examp
    operation (`notebookutils.fs.*`, `spark.read/write`, `SHOW SCHEMAS`, `credentials.getToken`) fails with
    `Auth failure ... CustomTokenProvider`. The identical session created with an `az` user token
    (`aud=https://api.fabric.microsoft.com`) works: `fs.ls`, `SHOW SCHEMAS`, `getToken` all succeed. This is why
-   `livy_session.sh` calls `az account get-access-token` + `curl` directly for session/statement calls, and
-   only uses `fab`/`fab_common.sh` for resolving workspace/lakehouse ids beforehand.
+   `livy_session.py` calls `az account get-access-token` and uses Python standard-library HTTP for
+   session/statement calls. It uses `fab` only for workspace/lakehouse ids, and imports the existing
+   Python project-context and manifest helpers directly. The refactored local driver is covered by
+   mocked HTTP/CLI regression tests; native Windows and live Fabric acceptance are still required.
 
 No service principal or app registration was needed for either login in this iteration; both are interactive
 user logins, appropriate for consulting engagements where the toolpack is set up fresh per customer.
@@ -88,10 +89,11 @@ lengths. If an audience genuinely needs checking, print `aud` alone.
 
 ## Verified Fabric/`fab` gotchas
 
-- `fab` output uses CRLF line endings; every script strips `\r`. `fab api` responses are wrapped — JMESPath
-  queries must start at `text.` (e.g. `text.value[]`), not the bare payload.
+- `fab api` responses are wrapped — JMESPath queries must start at `text.` (e.g. `text.value[]`), not the bare
+  payload. When a `-q` query matches nothing, `fab api` prints the whole response instead of nothing, so scripts
+  read the full `--json` result and filter in Python. `fab api` exits 0 on HTTP errors; check `status_code`.
 - OneLake `fab mkdir` creates **one directory level at a time** — no intermediate directories. `onelake_mkdir_p`
-  in `fab_common.sh` walks the path component by component.
+  in `scripts/fab_cli.py` walks the path component by component.
 - `fab cp` requires the destination directory to already exist; the error when it doesn't (`"Source and
   destination must be of the same type"`) is misleading. `fab cp -r` from local to OneLake is unsupported.
 - `fab mv` of an item into a folder **within the same workspace** is unsupported (`NotSupported`). Workaround:

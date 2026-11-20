@@ -5,8 +5,8 @@ description: Author, validate, push and provision a Norrin data product configur
 
 # nor-data-product-config
 
-Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`; the scripts locate the toolpack from their own
-path. The consuming project is the Git root of the current directory (cwd outside Git). Add
+Run `scripts/` next to this file with `python3` (Linux/WSL) or `python` (Windows); the scripts locate the toolpack
+from their own path. The consuming project is the Git root of the current directory (cwd outside Git). Add
 `--workspace ws_<name>` and/or `--target <profile>` to override `configuration/fabric_targets.json`.
 
 ## Authoring (from source documentation to config)
@@ -20,28 +20,17 @@ path. The consuming project is the Git root of the current directory (cwd outsid
 ```bash
 python3 "<directory of this SKILL.md>/scripts/validate_data_product_config.py" configuration/data_product/sample_api/sample_api.json
 ```
-Checks the same rules as the toolbelt validator (unique dataset names, allowed `source_configuration`/`publish_configuration` attributes incl. project extras) plus naming conventions and required keys.
+Run it from anywhere: the project is derived from the config path (or pass `--project-root`). Checks the same rules as the toolbelt validator (unique dataset names, allowed `source_configuration`/`publish_configuration` attributes incl. project extras) plus naming conventions and required keys.
 
 ## Push + provision
 ```bash
-bash "<directory of this SKILL.md>/scripts/push_data_product_config.sh" sample_api
-bash "<directory of this SKILL.md>/scripts/push_data_product_config.sh" sample_api --no-provision --workspace ws_example --target dev
+python3 "<directory of this SKILL.md>/scripts/push_data_product_config.py" sample_api
+python3 "<directory of this SKILL.md>/scripts/push_data_product_config.py" sample_api --no-provision --workspace ws_example --target dev
 ```
-Idempotent: existing items/dirs are left alone. If the shared resources lakehouse is absent, it is created at
-workspace root. Prints the OneLake path and the lakehouse id (needed for notebook default-lakehouse binding).
+Validates first, then pushes the config (and `project_configuration.json` when the project has one). Idempotent:
+existing items and directories are left alone. This is the only step that creates `lh_workspace_shared_resources`
+(at the workspace root) when it is missing. Prints the OneLake paths, `LAKEHOUSE_ID` and `WORKSPACE_ID`. Failures
+quote the Fabric message; report it rather than retrying blindly.
 
-Generated notebooks install `lakehouse-toolbelt>=1.0.7` from
-`https://nrnctopublishpip.z6.web.core.windows.net/pip/` at runtime. Do not locate or upload a local wheel
-as a prerequisite for the normal build, and do not install toolbelt on the builder machine.
-
-For an explicitly selected local-wheel compatibility workflow, the upload helper remains available:
-
-```bash
-bash "<directory of this SKILL.md>/scripts/push_toolbelt_wheel.sh" \
-	/path/to/lakehouse_toolbelt-1.0.7-py3-none-any.whl
-```
-
-The wheel must be version 1.0.7 or newer and is uploaded to
-`lh_workspace_shared_resources/Files/libraries/`. Use a verified artifact supplied by the project or toolbelt
-release process. Uploading alone does not select this source: the runtime must explicitly install that
-artifact or use an Environment containing it. Do not silently fall back to a staged wheel after a feed error.
+`lakehouse_toolbelt` is not needed on the builder machine: generated notebooks install it at runtime from the
+install cell in the notebook template.

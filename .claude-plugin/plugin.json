@@ -1,7 +1,7 @@
 {
   "name": "norrin-fabric-data-product-toolpack",
   "description": "Build source-aligned data products and model Foundational and Business data products in Microsoft Fabric.",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "author": {
     "name": "Norrin"
   },

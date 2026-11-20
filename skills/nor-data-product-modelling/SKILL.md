@@ -41,7 +41,8 @@ choose which findings to include or exclude, for example: "include 1 and 3; excl
 ## Notebook structure
 
 Use this order so a reader can move from intent to inputs, rules, contract, and publication without tracing
-state backwards:
+state backwards. A modelling notebook may bind a default lakehouse when that improves interactive authoring;
+treat the binding as a deliberate, deployment-managed choice (generated extract and CDC notebooks stay unbound):
 
 1. **Title and purpose (markdown).** Name the tier, business concept, owner or intended consumers when known,
    and the tables the notebook publishes.

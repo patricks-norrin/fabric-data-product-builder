@@ -1,9 +1,8 @@
 # Plugin packaging and local development
 
-The plugin manifests in `.claude-plugin/` and `.cursor-plugin/` register this toolpack with their respective
-hosts. The package keeps agent and skill source in the shared top-level `agents/` and `skills/` directories.
-The host manifests and marketplace entries are hand-maintained; the version synchronization test checks that
-their versions agree.
+The plugin manifest in `.claude-plugin/` registers this toolpack with both GitHub Copilot and Claude Code. The
+package keeps agent and skill source in the shared top-level `agents/` and `skills/` directories. The manifest and
+marketplace entry are hand-maintained; the version synchronization test checks that their versions agree.
 
 ## Copilot CLI
 

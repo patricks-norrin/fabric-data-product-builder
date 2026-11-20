@@ -5,12 +5,27 @@ description: Cell-by-cell development loop for Fabric notebooks without VS Code 
 
 # nor-livy-session
 
-Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`. All commands use
-`bash "<directory of this SKILL.md>/scripts/livy_session.sh" <command> ...`.
+Run `scripts/` next to this file with `python3` (Linux/WSL) or `python` (Windows):
+`python3 "<directory of this SKILL.md>/scripts/livy_session.py" <command> ...`.
 Add `--workspace ws_<name>` and/or `--target <profile>` when overriding project defaults. Session state is
 kept in `<project>/.scratch/<ws_name>/livy/livy_session.json`.
 Session lifecycle and cell-run outcomes are appended to
 `<project>/.scratch/<ws_name>/operational_manifest.jsonl`; deleting a session does not delete this manifest.
+
+## Local prerequisites and target discovery
+- Use local Python 3.10+ with the `fab` and `az` CLIs on PATH; no third-party package is needed.
+- Use paths native to that interpreter (`/home/...` or `/mnt/c/...` in WSL, `C:/Users/...` on Windows) and
+  quote paths containing spaces. Do not mix WSL and Windows executables: run Python, `fab` and `az` from the same
+  side, where the user signed in.
+- The project is the directory containing `configuration/fabric_targets.json`, not the installed plugin.
+  Automatic resolution uses the current Git root (cwd outside Git). If the project is nested, for example
+  `eda/` inside a repository, pass `--project-root "<repo>/eda"` on **every** command, including preflight.
+  Locate an existing target file before creating one; do not infer the current target from an old manifest.
+- Read that file's selected target/profile mapping for the physical workspace. After the
+  `nor-environment-check` gate, resolve its id with `fab get "<physical-name>.Workspace" -q id` and list the
+  lakehouses with
+  `fab api "workspaces/<verified-workspace-id>/items" -P type=Lakehouse -q "text.value[].{name:displayName,id:id}"`.
+  Use the verified product lakehouse, conventionally `lh_<id>`; ask if multiple candidates remain.
 
 ## Authentication — read before the first session
 - **fab (Fabric CLI) token = control plane only.** A Livy session created with it starts, but the Spark runtime gets **no delegated identity**: `notebookutils.fs.*`, `spark.read/write` to OneLake, `SHOW SCHEMAS`, `credentials.getToken` all fail with `Auth failure … CustomTokenProvider`. Verified 2026-09-11.
@@ -19,14 +34,27 @@ Session lifecycle and cell-run outcomes are appended to
 
 | Command | What it does |
 |---|---|
-| `create <lakehouse_name> [--no-environment]` | POST session bound to that lakehouse, optionally attach the Environment from the selected target mapping, wait until `idle` (~2–4 min), run the preamble (driver-side pip requirement resolution + workspace-name shim + `import lakehouse_toolbelt`). The preamble resolves `lakehouse-toolbelt>=1.0.7` from the hosted feed, without `--upgrade`; compatible Environment-installed packages satisfy the requirement. `--no-environment` omits the Environment binding. Installation/import failure is reported and fails the command. |
+| `create <lakehouse_name> [--no-environment]` | POST session bound to that lakehouse, optionally attach the Environment from the selected target mapping, wait until `idle` (startup varies by pool and Environment), run the preamble (driver-side pip requirement resolution + workspace-name shim + `import lakehouse_toolbelt`). The preamble resolves `lakehouse-toolbelt>=1.0.7` from the hosted feed, without `--upgrade`; compatible Environment-installed packages satisfy the requirement. `--no-environment` omits the Environment binding. Installation/import failure is reported and fails the command. |
 | `status` | Session state. |
 | `run-cells <notebook-content.py> [N[,M..]\|all] [--keep-going]` | Submit code cells in notebook order as statements (markdown skipped, `%%sql` cells sent as `sql`, dedicated single-line `%pip` cells run via driver-only subprocess pip), print each output, stop at the first error unless `--keep-going`. |
 | `statement "<code>"` or `statement -f file.py` | Ad-hoc statement (inspect a DataFrame, list files, `spark.sql`). |
 | `delete` | Close the session (do this when done — sessions cost capacity and time out after 20 min idle). |
+| `download-log <notebook_id> <livy_id> <app_id> [--file stdout\|stderr] [--bytes N] [--workspace-id id]` | Used by `nor-spark-diagnostics`: saves the last N bytes (default 16384) of a driver log to `<project>/.scratch/<ws_name>/diagnostics/` and prints only Traceback/Exception/Error lines. Needs no open session. |
 
-Cell numbering comes from
-`python3 "<directory of this SKILL.md>/scripts/notebook_cells.py" <notebook-content.py> --list`.
+To list cell numbers without executing them, invoke
+`scripts/notebook_cells.py <notebook-content.py> --list` with the same local Python command and native paths.
+
+## Read-only exploration
+Schema-enabled product lakehouses keep change-history tables in the product schema `<id>`; `dbo` can be empty.
+Discover schemas before concluding that there are no tables:
+
+```text
+statement "spark.sql('SHOW SCHEMAS').show(100, truncate=False)"
+statement "spark.sql('SHOW TABLES IN <discovered_schema>').show(100, truncate=False)"
+```
+
+These are arguments to the Python driver. Substitute a discovered product schema (a snake_case identifier),
+then use schema-qualified table names and bounded samples.
 
 ## Loop
 1. `create lh_<id>` once per work phase. Reuse that session for each cell retry; create another only when the
@@ -55,9 +83,11 @@ Cell numbering comes from
 
 ## Known behaviour
 - A session that fails during startup keeps `state: starting`; the real status is `fabricSessionStateInfo.state = error` + `errorMessage`. The driver checks both and fails fast.
+- On a create/startup failure, retain the Fabric reason and rerun `nor-environment-check` with the same project,
+  workspace and target to check capacity availability and pool settings before retrying. A previous capacity
+  failure is not proof of a current one; never resume or scale capacity automatically.
 - Attaching an Environment **from another workspace** kills the Spark session at startup (Livy and `fab job run` alike). Environments must live in the same workspace as the notebooks; copy them with `fab cp <ws>/<env>.Environment <target ws>` and publish.
-- `--no-environment`: the preamble resolves toolbelt from
-  `https://nrnctopublishpip.z6.web.core.windows.net/pip/` into the session driver. No staged wheel is required.
+- `--no-environment`: the preamble installs toolbelt from its hosted feed into the session driver.
 
 ## Package installation support and alternatives
 

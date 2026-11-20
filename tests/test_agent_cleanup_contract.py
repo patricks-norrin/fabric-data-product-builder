@@ -1,6 +1,7 @@
 import json
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -58,6 +59,29 @@ class AgentCleanupContractTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertIn("VALID:", result.stdout)
+
+    def test_validator_reads_project_configuration_of_the_config_owner_not_cwd(self):
+        validator = TOOLPACK_ROOT / "skills" / "nor-data-product-config" / "scripts" / "validate_data_product_config.py"
+        with tempfile.TemporaryDirectory() as temp:
+            project = pathlib.Path(temp) / "repo" / "eda"
+            product = project / "configuration" / "data_product" / "source_api"
+            extras = project / "configuration" / "data_product" / "project_configuration"
+            product.mkdir(parents=True)
+            extras.mkdir(parents=True)
+            (extras / "project_configuration.json").write_text(json.dumps(
+                {"source_configuration": {"allowed_extra_attributes": ["sheet_name"]}}), encoding="utf-8")
+            (product / "source_api.json").write_text(json.dumps({
+                "domain": "operations", "data_product_identifier": "source_api",
+                "datasets": [{"dataset_name": "customers", "unique_identifier_columns": ["id"],
+                              "source_configuration": {"sheet_name": "Customers"}}],
+            }), encoding="utf-8")
+
+            result = subprocess.run(
+                [sys.executable, str(validator), str(product / "source_api.json")],
+                cwd=pathlib.Path(temp), capture_output=True, text=True, check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_cleanup_is_explicit_and_preserves_product_data(self):
         content = AGENT.read_text(encoding="utf-8")

@@ -3,7 +3,7 @@
 Build source-aligned data products, model consumer-aligned products, and develop and troubleshoot Spark
 notebooks in **Microsoft Fabric** with the `nor-data-product-builder` agent.
 
-Use it from GitHub Copilot in VS Code or CLI, Claude Code, or Cursor, in your own project.
+Use it from GitHub Copilot or Claude Code, in VS Code or the CLI, on Linux, WSL, or Windows, in your own project.
 
 ## What You Can Do
 
@@ -76,7 +76,9 @@ Open the project where your data products belong. Generated configuration and no
 project, not in the installed plugin.
 
 Local notebook editing and reviews need no Fabric connection. For live builds, execution, or diagnostics,
-you need access to a Fabric workspace, the Microsoft Fabric CLI (`fab`), and Azure CLI (`az`). Sign in to the
+you need access to a Fabric workspace, the Microsoft Fabric CLI (`fab` 1.9.0 or later), Azure CLI (`az`), and
+Python 3.10+ (already present with `fab`). The same commands work on Linux, WSL, and native Windows; on Windows,
+install and sign in to `fab` and `az` on the side (Windows or WSL) where your assistant runs. Sign in to the
 customer tenant:
 
 ```bash
@@ -98,6 +100,15 @@ copilot plugin marketplace add https://github.com/patricks-norrin/fabric-data-pr
 copilot plugin install norrin-fabric-data-product-toolpack@norrin-fabric-plugins
 ```
 
+### Install with Claude Code
+
+In Claude Code (CLI or VS Code extension), register the marketplace and install the plugin:
+
+```text
+/plugin marketplace add https://github.com/patricks-norrin/fabric-data-product-builder.git
+/plugin install norrin-fabric-data-product-toolpack@norrin-fabric-plugins
+```
+
 The marketplace is public; no Azure DevOps repository access is required.
 
 ### Follow a Running Build
@@ -107,7 +118,7 @@ Fabric run never looks silent. When the agent runs as a background subagent, ask
 job table directly from the project:
 
 ```bash
-bash <installed toolpack>/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.sh status
+python3 <installed toolpack>/skills/nor-notebook-publish-and-run/scripts/run_notebook_job.py status
 ```
 
 It reads the current state of the latest job of each notebook from Fabric and prints its status, start/end

@@ -7,10 +7,6 @@ import re
 import sys
 
 VERSION_RE = re.compile(r"(\d+)\.(\d+)(?:\.(\d+))?")
-ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-LOGGED_IN_TRUE = re.compile(r"Logged\s+In:\s*True", re.IGNORECASE)
-LOGGED_IN_FALSE = re.compile(r"Logged\s+In:\s*False", re.IGNORECASE)
-LOGGED_IN_TO = re.compile(r"Logged\s+in\s+to\s+\S+", re.IGNORECASE)
 PREFERRED_MARKERS = {
     "fab": ("fab", "ms-fabric-cli", "fabric-cli"),
     "az": ("azure-cli",),
@@ -45,14 +41,6 @@ def extract_version(text: str, tool: str) -> str | None:
     return None
 
 
-def fab_logged_in(text: str) -> bool:
-    """True when `fab auth status` reports an interactive login. Ignores token lines."""
-    plain = ANSI_RE.sub("", text)
-    if LOGGED_IN_FALSE.search(plain):
-        return False
-    return bool(LOGGED_IN_TRUE.search(plain) or LOGGED_IN_TO.search(plain))
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="command", required=True)
@@ -61,7 +49,6 @@ def main() -> int:
     compare = sub.add_parser("at_least")
     compare.add_argument("minimum")
     compare.add_argument("have")
-    sub.add_parser("fab_logged_in")
     args = parser.parse_args()
 
     if args.command == "extract":
@@ -70,9 +57,6 @@ def main() -> int:
             return 1
         print(version)
         return 0
-
-    if args.command == "fab_logged_in":
-        return 0 if fab_logged_in(sys.stdin.read()) else 1
 
     try:
         ok = at_least(args.have, args.minimum)

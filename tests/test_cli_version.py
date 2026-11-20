@@ -7,7 +7,7 @@ import unittest
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLPACK_ROOT / "scripts"))
 
-from cli_version import at_least, extract_version, fab_logged_in, parse_version
+from cli_version import at_least, extract_version, parse_version
 
 
 AZ_VERSION_BLOB = """
@@ -52,25 +52,6 @@ class CliVersionTests(unittest.TestCase):
         )
         self.assertEqual(below.returncode, 1)
 
-    def test_fab_logged_in_matches_current_cli_banner(self):
-        banner = (
-            "✓ Logged in to app.fabric.microsoft.com\n"
-            "Logged In: True\n"
-            "Account: user@example.com\n"
-            "Tenant ID: 00000000-0000-0000-0000-000000000000\n"
-            "Token Fabric PowerBI: eyJ0-redacted\n"
-        )
-        self.assertTrue(fab_logged_in(banner))
-        self.assertFalse(fab_logged_in("Logged In: False\n"))
-        self.assertTrue(fab_logged_in("\x1b[32mLogged In: True\x1b[0m\n"))
-        script = TOOLPACK_ROOT / "scripts" / "cli_version.py"
-        logged_in = subprocess.run(
-            [sys.executable, str(script), "fab_logged_in"],
-            input=banner,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(logged_in.returncode, 0)
 
 
 if __name__ == "__main__":

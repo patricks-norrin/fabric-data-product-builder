@@ -2,7 +2,6 @@ import contextlib
 import importlib.util
 import io
 import json
-import os
 import pathlib
 import runpy
 import subprocess
@@ -59,63 +58,6 @@ class LivyDependencyTests(unittest.TestCase):
         self.assertEqual(sql["kind"], "sql")
         self.assertEqual(sql["source"], "SELECT 1")
         self.assertNotIn("livy_source", sql)
-
-    def test_run_cells_submits_plain_python_for_dependency_cell(self):
-        self.run_cells_in_project("project")
-
-    def test_state_file_paths_with_backslashes_are_not_parsed_as_python_escapes(self):
-        self.run_cells_in_project(r"Users\proj")
-
-    def run_cells_in_project(self, project_name):
-        with tempfile.TemporaryDirectory() as temp:
-            project = pathlib.Path(temp) / project_name
-            project.mkdir()
-            configuration = project / "configuration"
-            configuration.mkdir()
-            (configuration / "fabric_targets.json").write_text(json.dumps({
-                "active_target": "dev",
-                "default_workspace": "ws_test",
-                "targets": {"dev": {"workspaces": {
-                    "ws_test": {"workspace_name": "physical_workspace"},
-                }}},
-            }), encoding="utf-8")
-            state = project / ".scratch" / "ws_test" / "livy"
-            state.mkdir(parents=True)
-            (state / "livy_session.json").write_text(json.dumps({
-                "base": "workspaces/test/livyapi/sessions", "session_id": "test-session",
-            }), encoding="utf-8")
-            notebook = project / "notebook-content.py"
-            notebook.write_text("# CELL ********************\n" + INSTALL, encoding="utf-8")
-            fake_bin = project / "fake-bin"
-            fake_bin.mkdir()
-            (fake_bin / "az").write_text("#!/usr/bin/env bash\necho test-token\n", encoding="utf-8")
-            (fake_bin / "curl").write_text(
-                "#!/usr/bin/env python3\n"
-                "import json, os, pathlib, sys\n"
-                "if '--data-binary' in sys.argv:\n"
-                "    path = sys.argv[sys.argv.index('--data-binary') + 1][1:]\n"
-                "    pathlib.Path(os.environ['CAPTURED_STATEMENT']).write_text(pathlib.Path(path).read_text())\n"
-                "print(json.dumps({'id': 0, 'state': 'available', 'output': "
-                "{'status': 'ok', 'data': {'text/plain': 'done'}}}))\n",
-                encoding="utf-8",
-            )
-            for command in ("az", "curl"):
-                (fake_bin / command).chmod(0o755)
-            environment = os.environ.copy()
-            environment["PATH"] = f"{fake_bin}:/usr/bin:/bin"
-            payload_path = project / "statement.json"
-            environment["CAPTURED_STATEMENT"] = str(payload_path)
-
-            result = subprocess.run([
-                "bash", str(LIVY / "scripts" / "livy_session.sh"),
-                "run-cells", str(notebook), "all", "--project-root", str(project),
-            ], cwd=project, env=environment, capture_output=True, text=True, timeout=30)
-
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            payload = json.loads(payload_path.read_text(encoding="utf-8"))
-            self.assertEqual(payload["kind"], "pyspark")
-            self.assertEqual(payload["code"], self.parse_cell(INSTALL)["livy_source"])
-            compile(payload["code"], "<livy-statement>", "exec")
 
     def run_preamble(self, installed_version="1.0.7", pip_error=None):
         notebookutils = types.ModuleType("notebookutils")

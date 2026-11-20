@@ -5,8 +5,8 @@ description: Author the two single-responsibility notebooks of a source-aligned 
 
 # nor-notebook-author
 
-Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`; the script locates the toolpack from its own
-path. The consuming project is the Git root of the current directory (cwd outside Git).
+Run `scripts/` next to this file with `python3` (Linux/WSL) or `python` (Windows); the script locates the toolpack
+from its own path. The consuming project is the Git root of the current directory (cwd outside Git).
 
 ## Render
 ```bash
@@ -14,10 +14,9 @@ python3 "<directory of this SKILL.md>/scripts/render_notebook.py" extract sample
 python3 "<directory of this SKILL.md>/scripts/render_notebook.py" cdc sample_api --workspace ws_example --target dev
 ```
 Writes `ws_<name>/<id>/nb_<kind>_<id>.Notebook/{notebook-content.py,.platform}` with workspace and
-lakehouse (`lh_<id>`) resolved via `fab`. Generated notebooks have a dedicated early installation cell:
-`%pip install --no-index -f https://nrnctopublishpip.z6.web.core.windows.net/pip/ "lakehouse-toolbelt>=1.0.7"`.
-A compatible preinstalled package satisfies the requirement without `--upgrade`. No local wheel, wheel upload,
-or Environment binding is required; the workspace default Spark pool can be used. Keep parameters and imports
+lakehouse (`lh_<id>`) resolved at runtime. Generated notebooks have a dedicated early cell that installs
+`lakehouse_toolbelt` from its hosted feed; keep it as rendered. A compatible preinstalled package satisfies the
+requirement without `--upgrade`, and no Environment binding is required. Keep parameters and imports
 after this cell because Fabric restarts Python after installation and clears previously defined variables.
 The package is a Fabric runtime dependency, not a dependency of the builder machine.
 `nb_cdc` is complete as rendered, with an editable

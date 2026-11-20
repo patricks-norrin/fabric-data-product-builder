@@ -6,72 +6,7 @@
     "dev": {
       "workspaces": {
         "ws_source": {
-          "workspace_name": "ws_source_dev",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
-        },
-        "ws_domain": {
-          "workspace_name": "ws_domain_dev",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
-        }
-      }
-    },
-    "test": {
-      "workspaces": {
-        "ws_source": {
-          "workspace_name": "ws_source_test",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
-        },
-        "ws_domain": {
-          "workspace_name": "ws_domain_test",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
-        }
-      }
-    },
-    "prod": {
-      "workspaces": {
-        "ws_source": {
-          "workspace_name": "ws_source_prod",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
-        },
-        "ws_domain": {
-          "workspace_name": "ws_domain_prod",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
-        }
-      }
-    },
-    "feature_12345": {
-      "workspaces": {
-        "ws_source": {
-          "workspace_name": "12345_ws_source_dev",
-          "environment": {
-            "name": "env_data_platform",
-            "id": "<environment-id>",
-            "workspace_id": "<workspace-id>"
-          }
+          "workspace_name": "ws_source_dev"
         }
       }
     }

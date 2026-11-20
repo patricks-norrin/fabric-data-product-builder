@@ -9,14 +9,8 @@ CHANGELOG = TOOLPACK_ROOT / "CHANGELOG.md"
 
 class PluginVersionTests(unittest.TestCase):
     def test_plugin_and_marketplace_versions_match(self):
-        manifest_paths = (
-            TOOLPACK_ROOT / ".claude-plugin" / "plugin.json",
-            TOOLPACK_ROOT / ".cursor-plugin" / "plugin.json",
-        )
-        marketplace_paths = (
-            TOOLPACK_ROOT / ".claude-plugin" / "marketplace.json",
-            TOOLPACK_ROOT / ".cursor-plugin" / "marketplace.json",
-        )
+        manifest_paths = (TOOLPACK_ROOT / ".claude-plugin" / "plugin.json",)
+        marketplace_paths = (TOOLPACK_ROOT / ".claude-plugin" / "marketplace.json",)
 
         versions = {
             json.loads(path.read_text(encoding="utf-8"))["version"]

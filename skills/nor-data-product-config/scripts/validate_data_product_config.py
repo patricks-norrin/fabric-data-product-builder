@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Validate a data product configuration locally (stdlib only).
 Mirrors lakehouse_toolbelt's validator (dataset name uniqueness, allowed source/publish attributes incl.
-project_configuration extras) and adds Norrin naming rules. Exit 1 on errors."""
-import json, pathlib, re, sys
+project_configuration extras) and adds Norrin naming rules. Exit 1 on errors.
+Usage: validate_data_product_config.py <config.json> [--project-root <dir>]"""
+import argparse, json, pathlib, re, sys
 
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(TOOLPACK_ROOT / "scripts"))
 from norrin_context import find_project_root
 
-PROJECT_ROOT = find_project_root()
 CONV = json.loads((TOOLPACK_ROOT / "reference/architecture/conventions.json").read_text(encoding="utf-8"))
 SOURCE_DEFAULTS = ["source_schema", "source_table", "filter_string", "base_url", "relative_url_template", "endpoint_query_parameters"]
 PUBLISH_DEFAULTS = ["active", "included_columns"]
@@ -16,10 +16,20 @@ DATASET_KNOWN = {"dataset_name", "unique_identifier_columns", "exclude_columns_f
                  "object_version_timestamp_column", "schema_compatibility_mode", "object_version_number_column", "source_configuration",
                  "publish_configuration", "merge_strategy", "personal_data_columns"}
 
-def main(path):
+def project_root_for(path, project_root=None):
+    """The project that owns configuration/data_product/<id>/<id>.json, not the caller's cwd."""
+    if project_root:
+        return pathlib.Path(project_root).resolve()
+    resolved = pathlib.Path(path).resolve()
+    if len(resolved.parents) > 3 and resolved.parents[1].name == "data_product" and resolved.parents[2].name == "configuration":
+        return resolved.parents[3]
+    return find_project_root(resolved.parent)
+
+
+def main(path, project_root=None):
     errors, warnings = [], []
     cfg = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
-    proj_path = PROJECT_ROOT / "configuration/data_product/project_configuration/project_configuration.json"
+    proj_path = project_root_for(path, project_root) / "configuration/data_product/project_configuration/project_configuration.json"
     proj = json.loads(proj_path.read_text(encoding="utf-8")) if proj_path.exists() else {}
     src_allowed = set(SOURCE_DEFAULTS + proj.get("source_configuration", {}).get("allowed_extra_attributes", []))
     pub_allowed = set(PUBLISH_DEFAULTS + proj.get("publish_configuration", {}).get("allowed_extra_attributes", []))
@@ -56,4 +66,8 @@ def main(path):
     return 1 if errors else 0
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1]))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config")
+    parser.add_argument("--project-root")
+    args = parser.parse_args()
+    sys.exit(main(args.config, args.project_root))

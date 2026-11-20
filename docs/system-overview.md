@@ -39,7 +39,7 @@ does not replace the publish/run or Livy workflows.
 | `reference/lakehouse_toolbelt/` | Vendored toolbelt documentation and examples used as the CDC implementation contract |
 | `templates/project/` | Generic project configuration templates |
 | `tests/` | Structural and behavior checks for scripts, templates, skills, and plugin metadata |
-| `.claude-plugin/`, `.cursor-plugin/` | Host plugin and marketplace metadata |
+| `.claude-plugin/` | Plugin and marketplace metadata, read by both GitHub Copilot and Claude Code |
 
 The toolpack contains nine skills. The skills and their resources are the implementation source of truth;
 this overview and the skills index summarize and link to them rather than restating their detailed procedures.

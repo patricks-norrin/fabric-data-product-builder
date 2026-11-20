@@ -5,25 +5,25 @@ description: Publish a data product notebook with fab import or its pl_<id> Data
 
 # nor-notebook-publish-and-run
 
-Run `scripts/` next to this file. Do not set `TOOLPACK_ROOT`. Add `--workspace ws_<name>` and/or
+Run `scripts/` next to this file with `python3` (Linux/WSL) or `python` (Windows). Add `--workspace ws_<name>` and/or
 `--target <profile>` to override project defaults.
 
 ```bash
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" publish sample_api nb_extract_sample_api
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" run sample_api nb_extract_sample_api --timeout 1800 --poll 30
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" start sample_api nb_extract_sample_api
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" wait sample_api nb_extract_sample_api --job-id <job id> --timeout 600
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" status
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" export sample_api nb_extract_sample_api --workspace ws_example --target dev
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" runs sample_api nb_extract_sample_api
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" publish sample_api nb_extract_sample_api
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" run sample_api nb_extract_sample_api --timeout 1800 --poll 30
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" start sample_api nb_extract_sample_api
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" wait sample_api nb_extract_sample_api --job-id <job id> --timeout 600
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" status
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" export sample_api nb_extract_sample_api --workspace ws_example --target dev
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" runs sample_api nb_extract_sample_api
 ```
 
 Pipeline acceptance, after publishing both notebooks:
 
 ```bash
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" publish sample_api pl_sample_api
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" start sample_api pl_sample_api
-bash "<directory of this SKILL.md>/scripts/run_notebook_job.sh" wait sample_api pl_sample_api --job-id "<printed pipeline job ID>" --timeout 600
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" publish sample_api pl_sample_api
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" start sample_api pl_sample_api
+python3 "<directory of this SKILL.md>/scripts/run_notebook_job.py" wait sample_api pl_sample_api --job-id "<printed pipeline job ID>" --timeout 600
 ```
 
 Success requires `Completed` plus output table/row-count evidence, not merely job submission. On failure, give
@@ -59,9 +59,8 @@ retrieves the actual notebook run/session and errors; do not pick the latest not
 	`<project>/.scratch/<ws_name>/operational_manifest.jsonl`.
 - Independent products may run concurrently: `start` each product's `pl_<id>`, then `wait` each one. The pipeline,
 	not the caller, sequences notebooks inside a product.
-- Headless runs use the workspace default pool. Generated notebooks install `lakehouse-toolbelt>=1.0.7`
-	from `https://nrnctopublishpip.z6.web.core.windows.net/pip/` with `%pip install --no-index -f` before importing it.
-	An Environment binding and a staged local wheel are not required. Report feed/network or installation failures;
-	do not silently switch to another package source.
+- Headless runs use the workspace default pool. Generated notebooks install `lakehouse_toolbelt` in their install
+	cell, so no Environment binding is required. Report feed/network or installation failures; do not silently switch
+	to another package source.
 - Order for a data product: publish `nb_extract_<id>`, `nb_cdc_<id>`, then `pl_<id>`; run `pl_<id>`; then check `fab ls`/`fab table schema`
 	on the product lakehouse. Run a single notebook headless only to isolate a failure.

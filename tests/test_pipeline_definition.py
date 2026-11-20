@@ -1,5 +1,4 @@
 import json
-import os
 import pathlib
 import re
 import subprocess
@@ -7,10 +6,12 @@ import sys
 import tempfile
 import unittest
 
+import fake_cli
+
 
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parents[1]
 PIPELINE_PY = TOOLPACK_ROOT / "skills" / "nor-pipeline-author" / "scripts" / "pipeline_definition.py"
-RUN_JOB = TOOLPACK_ROOT / "skills" / "nor-notebook-publish-and-run" / "scripts" / "run_notebook_job.sh"
+RUN_JOB = TOOLPACK_ROOT / "skills" / "nor-notebook-publish-and-run" / "scripts" / "run_notebook_job.py"
 WORKSPACE_ID = "11111111-1111-1111-1111-111111111111"
 
 
@@ -115,33 +116,26 @@ class PipelineDefinitionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             project = pathlib.Path(temp)
             self._render(temp)
-            fake_bin = project / "fake-bin"
-            fake_bin.mkdir()
-            (fake_bin / "fab").write_text(
-                "#!/usr/bin/env bash\n"
-                'case "$*" in\n'
-                f'  get*) echo "{WORKSPACE_ID}";;\n'
-                '  exists*) echo "* true";;\n'
-                '  deploy*) cp "$3" "$FAKE/deploy.json"; exit "$DEPLOY_EXIT";;\n'
-                '  *"displayName==\'pl_dp\'"*) echo "\\"P\\"";;\n'
-                '  *) echo "unexpected fab call: $*" >&2; exit 1;;\n'
-                'esac\n',
-                encoding="utf-8",
-            )
-            (fake_bin / "fab").chmod(0o755)
-            environment = os.environ.copy()
-            environment["PATH"] = f"{fake_bin}:/usr/bin:/bin"
-            environment["FAKE"] = str(project)
+            fake_cli.install(project / "bin", "fab", f'''
+if cmd.startswith("get "): ok("{WORKSPACE_ID}")
+if cmd.startswith("exists "): ok(message="true")
+if cmd.startswith("deploy "):
+    (STATE / "deploy.json").write_text(pathlib.Path(args[2]).read_text())
+    ok(message="deployed") if os.environ["DEPLOY_EXIT"] == "0" else fail("DeploymentFailed: notebook reference not found")
+if cmd.endswith("type=DataPipeline"): api({{"value": [{{"displayName": "pl_dp", "id": "P"}}]}})
+''')
+            environment = fake_cli.environment(project / "bin", project)
             environment["DEPLOY_EXIT"] = str(deploy_exit)
 
             result = subprocess.run(
-                ["bash", str(RUN_JOB), "publish", "dp", "pl_dp", "--project-root", str(project)],
+                [sys.executable, str(RUN_JOB), "publish", "dp", "pl_dp", "--project-root", str(project)],
                 cwd=project, env=environment, capture_output=True, text=True, timeout=60,
             )
 
             if deploy_exit:
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn("published pl_dp", result.stdout)
+                self.assertIn("notebook reference not found", result.stderr)
                 return
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("published pl_dp (P)", result.stdout)

@@ -1,21 +1,21 @@
 import json
-import os
 import pathlib
 import re
+import shlex
 import subprocess
+import sys
 import tempfile
 import unittest
 
+import fake_cli
+
 
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parents[1]
-
-import sys
-
 sys.path.insert(0, str(TOOLPACK_ROOT / "scripts"))
 
 from run_manifest import append_event, latest_jobs
 
-RUN_JOB = TOOLPACK_ROOT / "skills" / "nor-notebook-publish-and-run" / "scripts" / "run_notebook_job.sh"
+RUN_JOB = TOOLPACK_ROOT / "skills" / "nor-notebook-publish-and-run" / "scripts" / "run_notebook_job.py"
 WORKSPACE_ID = "11111111-1111-1111-1111-111111111111"
 JOB_ID = "44444444-4444-4444-4444-444444444444"
 
@@ -39,25 +39,6 @@ class RunManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "key=value"):
                 append_event(pathlib.Path(temp) / "manifest.jsonl", "bad", ["missing-separator"])
 
-    def test_execution_drivers_record_lifecycle_events(self):
-        common = (TOOLPACK_ROOT / "scripts" / "fab_common.sh").read_text(encoding="utf-8")
-        livy = (
-            TOOLPACK_ROOT / "skills" / "nor-livy-session" / "scripts" / "livy_session.sh"
-        ).read_text(encoding="utf-8")
-        jobs = (
-            TOOLPACK_ROOT
-            / "skills"
-            / "nor-notebook-publish-and-run"
-            / "scripts"
-            / "run_notebook_job.sh"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("operational_manifest.jsonl", common)
-        for event in ("livy_create_requested", "livy_ready", "livy_failed", "livy_deleted", "cells_finished"):
-            self.assertIn(f"record_run_event {event}", livy)
-        for event in ("job_requested", "job_started", "job_status", "job_finished", "job_wait_timeout"):
-            self.assertIn(f"record_run_event {event}", jobs)
-
 
     def test_latest_jobs_keeps_most_recent_start_per_notebook(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -74,7 +55,7 @@ class RunManifestTests(unittest.TestCase):
 
 
 class RunNotebookJobTests(unittest.TestCase):
-    """Drive run_notebook_job.sh against a fake fab that returns fab 1.9 `--json` envelopes."""
+    """Drive run_notebook_job.py against a fake fab that returns fab 1.9 `--json` envelopes."""
 
     def _project(self, temp, statuses, failure="", start_output=None):
         project = pathlib.Path(temp)
@@ -84,30 +65,20 @@ class RunNotebookJobTests(unittest.TestCase):
             "default_workspace": "ws_alpha",
             "targets": {"dev": {"workspaces": {"ws_alpha": {"workspace_name": "ws_alpha_dev"}}}},
         }), encoding="utf-8")
-        fake_bin = project / "fake-bin"
-        fake_bin.mkdir()
         (project / "statuses").write_text("\n".join(statuses) + "\n", encoding="utf-8")
         (project / "start.json").write_text(start_output or self._envelope({"id": JOB_ID}), encoding="utf-8")
         (project / "failure").write_text(failure, encoding="utf-8")
-        (fake_bin / "fab").write_text(
-            "#!/usr/bin/env bash\n"
-            'case "$*" in\n'
-            f'  get*) echo "{WORKSPACE_ID}";;\n'
-            '  "job start"*--json*) cat "$FAKE/start.json";;\n'
-            '  "job run-status"*--json*)\n'
-            '    status=$(head -1 "$FAKE/statuses"); [ "$(wc -l < "$FAKE/statuses")" -gt 1 ] && sed -i 1d "$FAKE/statuses"\n'
-            '    python3 -c "import json,sys; f=sys.argv[2]; print(json.dumps({\'status\': \'Success\', \'result\': {\'data\': '
-            '[{\'id\': sys.argv[3], \'status\': sys.argv[1], \'startTimeUtc\': \'2026-11-03T10:00:00\', '
-            '\'endTimeUtc\': None, \'failureReason\': {\'message\': f} if f else None}]}}))" '
-            '"$status" "$(cat "$FAKE/failure")" "${@: -2:1}";;\n'
-            '  *) echo "unexpected fab call: $*" >&2; exit 1;;\n'
-            'esac\n',
-            encoding="utf-8",
-        )
-        (fake_bin / "fab").chmod(0o755)
-        environment = os.environ.copy()
-        environment["PATH"] = f"{fake_bin}:/usr/bin:/bin"
-        environment["FAKE"] = str(project)
+        fake_cli.install(project / "bin", "fab", f'''
+if cmd.startswith("get "): ok("{WORKSPACE_ID}")
+if cmd.startswith("job start"): text((STATE / "start.json").read_text())
+if cmd.startswith("job run-status"):
+    queue = (STATE / "statuses").read_text().split()
+    if len(queue) > 1: (STATE / "statuses").write_text("\\n".join(queue[1:]))
+    failure = (STATE / "failure").read_text()
+    ok({{"id": args[-1], "status": queue[0], "startTimeUtc": "2026-11-03T10:00:00", "endTimeUtc": None,
+        "failureReason": {{"message": failure}} if failure else None}})
+''')
+        environment = fake_cli.environment(project / "bin", project)
         return project, environment
 
     @staticmethod
@@ -116,7 +87,7 @@ class RunNotebookJobTests(unittest.TestCase):
 
     def _run(self, project, environment, *args):
         return subprocess.run(
-            ["bash", str(RUN_JOB), *args, "--project-root", str(project)],
+            [sys.executable, str(RUN_JOB), *args, "--project-root", str(project)],
             cwd=project, env=environment, capture_output=True, text=True, timeout=60,
         )
 
@@ -166,7 +137,7 @@ class RunNotebookJobTests(unittest.TestCase):
             result = self._run(project, environment, "start", "dp", "nb_extract_dp")
 
             self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-            self.assertIn("ItemNotFound", result.stdout)
+            self.assertIn("ItemNotFound", result.stdout + result.stderr)
             self.assertNotIn("job_started", [e["event"] for e in self._events(project)])
 
     def test_wait_timeout_leaves_job_running_and_resumes_from_manifest(self):
@@ -204,12 +175,13 @@ class RunNotebookJobTests(unittest.TestCase):
         self.assertIsInstance(query["lastUpdatedAfter"], str)
         self.assertIsInstance(query["lastUpdatedBefore"], str)
         self.assertIsNone(query["continuationToken"])
-        commands = [block for block in re.findall(r"```bash\n(.*?)\n```", skill, re.DOTALL)
-                    if "$PIPELINE_ID" in block or "queryactivityruns" in block]
+        commands = [block for block in re.findall(r"```text\n(.*?)\n```", skill, re.DOTALL)
+                    if "<pipeline-id>" in block or "queryactivityruns" in block]
         self.assertEqual(len(commands), 2)
         for command in commands:
-            result = subprocess.run(["bash", "-n"], input=command, text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
+            words = shlex.split(command)
+            self.assertEqual(words[:2], ["fab", "api"])
+            self.assertFalse(any(word.startswith("$") for word in words), command)
 
     def test_status_reads_latest_job_state_from_fabric(self):
         with tempfile.TemporaryDirectory() as temp:

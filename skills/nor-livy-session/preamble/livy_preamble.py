@@ -1,4 +1,4 @@
-# Livy preamble — executed once per session by livy_session.sh (never part of a notebook).
+# Livy preamble — executed once per session by livy_session.py (never part of a notebook).
 # 1) shim: lakehouse_toolbelt reads notebookutils.runtime.context["currentWorkspaceName"], which is None in Livy.
 import json, os
 import notebookutils

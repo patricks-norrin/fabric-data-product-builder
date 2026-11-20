@@ -1,13 +1,15 @@
 import json
-import os
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
+import fake_cli
+
 
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parents[1]
-RUN_JOB = TOOLPACK_ROOT / "skills" / "nor-notebook-publish-and-run" / "scripts" / "run_notebook_job.sh"
+RUN_JOB = TOOLPACK_ROOT / "skills" / "nor-notebook-publish-and-run" / "scripts" / "run_notebook_job.py"
 WORKSPACE_ID = "11111111-1111-1111-1111-111111111111"
 LOGICAL_ID = "a9f0f560-0000-4000-8000-000000000001"
 TARGET_ENV_ID = "f87fecca-0000-4000-8000-000000000002"
@@ -48,26 +50,19 @@ class PublishNotebookEnvironmentTests(unittest.TestCase):
                 "metadata": {"type": "Environment", "displayName": "env_catalog"},
                 "config": {"logicalId": LOGICAL_ID},
             }))
-        env_answer = f'echo "\\"{TARGET_ENV_ID}\\""' if target_has_env else 'echo None'
-        fake_bin = project / "fake-bin"
-        fake_bin.mkdir()
-        (fake_bin / "fab").write_text(
-            "#!/usr/bin/env bash\n"
-            'case "$*" in\n'
-            f'  get*) echo "{WORKSPACE_ID}";;\n'
-            '  exists*) echo "* true";;\n'
-            '  import*) cp "$4/notebook-content.py" "$FAKE/imported.py"; echo "* Imported";;\n'
-            f'  *"displayName==\'env_catalog\'"*) {env_answer};;\n'
-            '  *"displayName==\'nb_cdc_dp\'"*) echo "\\"N\\"";;\n'
-            '  *) echo "unexpected fab call: $*" >&2; exit 1;;\n'
-            'esac\n'
-        )
-        (fake_bin / "fab").chmod(0o755)
-        environment_vars = os.environ.copy()
-        environment_vars["PATH"] = f"{fake_bin}:/usr/bin:/bin"
-        environment_vars["FAKE"] = str(project)
+        environments = [{"displayName": "env_catalog", "id": TARGET_ENV_ID}] if target_has_env else []
+        fake_cli.install(project / "bin", "fab", f'''
+if cmd.startswith("get "): ok("{WORKSPACE_ID}")
+if cmd.startswith("exists "): ok(message="true")
+if cmd.startswith("import "):
+    (STATE / "imported.py").write_text((pathlib.Path(args[3]) / "notebook-content.py").read_text())
+    ok(message="Imported")
+if cmd.endswith("type=Environment"): api({{"value": {environments!r}}})
+if cmd.endswith("type=Notebook"): api({{"value": [{{"displayName": "nb_cdc_dp", "id": "N"}}]}})
+''')
+        environment_vars = fake_cli.environment(project / "bin", project)
         result = subprocess.run(
-            ["bash", str(RUN_JOB), "publish", "dp", "nb_cdc_dp", "--project-root", str(project)],
+            [sys.executable, str(RUN_JOB), "publish", "dp", "nb_cdc_dp", "--project-root", str(project)],
             cwd=project, env=environment_vars, capture_output=True, text=True, timeout=60,
         )
         return project, notebook, result

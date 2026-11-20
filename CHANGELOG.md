@@ -5,6 +5,35 @@ All notable changes to `norrin-fabric-data-product-toolpack` are documented here
 The history through version 1.0.16 was reconstructed from plugin manifest changes and the main Git history
 because earlier releases were not tagged and the project did not yet have a changelog.
 
+## [1.0.18] - 2026-11-17
+
+### Changed
+
+- All toolpack scripts are now standard-library Python and run unchanged on Linux, WSL and native Windows from
+  GitHub Copilot or Claude Code. Bash and Git Bash are no longer required. `check_environment.py`,
+  `push_data_product_config.py` and `run_notebook_job.py` replace their `.sh` versions with the same commands
+  and arguments; run them with `python3` (Linux/WSL) or `python` (Windows).
+- Scripts call `fab` with `--json` through a shared `scripts/fab_cli.py` and report the message Fabric returned on
+  every failure instead of discarding it. Item lookups no longer use `fab api -q`, which prints the whole response
+  when the query matches nothing.
+- `nor-environment-check` is read-only: it no longer creates `lh_workspace_shared_resources` (the config push owns
+  that) or probes local file writes, and it proves sign-in through the workspace lookup instead of parsing
+  `fab auth status` text. It no longer warns about a missing `project_configuration.json` or Environment.
+- `validate_data_product_config.py` reads `project_configuration.json` from the project that owns the config file
+  (or `--project-root`), not from the current directory.
+- `nor-spark-diagnostics` recipes are shell-neutral; driver logs are read with the new
+  `livy_session.py download-log` command instead of `curl` and `/tmp`.
+- The builder agent prompt is about half its former size: rules owned by skills (incremental extraction, raw
+  format, CDC notebook shape, toolbelt feed) and host-specific approval wording were removed from it.
+- The `fabric_targets.json` template has one target and one workspace without placeholder GUIDs.
+
+### Removed
+
+- Cursor plugin manifests; the toolpack targets GitHub Copilot and Claude Code, which both read `.claude-plugin/`.
+- `push_toolbelt_wheel.sh` (its version check accepted 1.0.0-1.0.6); publish private toolbelt builds in an
+  Environment instead.
+- The migration error for the retired `target_workspace.json` format and the template-placeholder check.
+
 ## [1.0.17] - 2026-11-16
 
 ### Added

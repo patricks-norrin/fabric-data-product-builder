@@ -18,8 +18,6 @@ from typing import Any
 TOOLPACK_ROOT = pathlib.Path(__file__).resolve().parent.parent
 WORKSPACE_PATTERN = re.compile(r"^ws_[a-z0-9]+(?:_[a-z0-9]+)*$")
 TEMPLATE_TARGET_FILE = TOOLPACK_ROOT / "templates/project/configuration/fabric_targets.json"
-# Template placeholders such as <environment-id> are truthy, so they pass every downstream -n test.
-PLACEHOLDER_PATTERN = re.compile(r"^<.*>$")
 
 
 @dataclass(frozen=True)
@@ -72,13 +70,6 @@ def resolve_context(
 ) -> ProjectContext:
     root = (project_root or find_project_root(start)).resolve()
     target_file = root / "configuration" / "fabric_targets.json"
-    legacy_target_file = root / "configuration" / "target_workspace.json"
-    if not target_file.exists() and legacy_target_file.exists():
-        raise ValueError(
-            f"{legacy_target_file} uses the retired single-workspace format; migrate it to "
-            f"{target_file} using the installed toolpack template at "
-            f"{TEMPLATE_TARGET_FILE}"
-        )
     if not target_file.exists():
         raise ValueError(
             f"missing project target configuration: {target_file}; ask the user which physical "
@@ -129,14 +120,6 @@ def resolve_context(
             f"{target_file}: targets.{target_profile}.workspaces.{workspace_key}.environment "
             "must be an object"
         )
-    for field in ("id", "workspace_id"):
-        value = environment.get(field)
-        if isinstance(value, str) and PLACEHOLDER_PATTERN.fullmatch(value.strip()):
-            raise ValueError(
-                f"{target_file}: targets.{target_profile}.workspaces.{workspace_key}.environment."
-                f"{field} is still the template placeholder {value!r}; derive it from "
-                "'fab api workspaces/<workspace-id>/environments' or drop the environment block"
-            )
 
     return ProjectContext(
         toolpack_root=TOOLPACK_ROOT,

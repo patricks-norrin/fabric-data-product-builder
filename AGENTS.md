@@ -42,7 +42,7 @@ notebook template here; preserve unrelated behavior.
 ## Validation And Release
 
 - Run the narrowest relevant test after an edit, then run `python3 -m unittest discover -s tests` before publishing.
-- Validate edited JSON with `python3 -m json.tool <file>` and shell scripts with `bash -n <file>`.
-- Before a push, bump both `.claude-plugin/plugin.json` and `.cursor-plugin/plugin.json`, and mirror that version in
-  both `marketplace.json` plugin entries.
+- Validate edited JSON with `python3 -m json.tool <file>`. Toolpack scripts are standard-library Python so they run
+  unchanged on Linux, WSL and native Windows; do not add Bash or PowerShell scripts.
+- Before a push, bump `.claude-plugin/plugin.json` and mirror that version in the `marketplace.json` plugin entry.
 - Commit only the files needed for the improvement and push only when the user requests publication.

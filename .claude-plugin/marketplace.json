@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "norrin-fabric-data-product-toolpack",
-      "version": "1.0.17",
+      "version": "1.0.18",
       "source": ".",
       "description": "Build source-aligned Fabric data products and apply Foundational and Business modelling conventions."
     }
