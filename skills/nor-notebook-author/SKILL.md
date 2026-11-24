@@ -25,6 +25,8 @@ for you to implement.
 
 ## Rules for every cell (human-in-the-loop notebooks)
 - One responsibility per cell, a markdown cell before each code cell saying what and why.
+- In Fabric `.py` notebook markdown cells, write blank markdown lines as `# ` (hash followed by a space), not
+  bare `#`; Fabric import can drop the latter and merge paragraphs or tables.
 - Cells are rerunnable: same inputs → same files/rows (raw is per `batch_id`; CDC upsert is idempotent).
 - Each code cell ends by printing what it produced (paths, byte sizes, row counts). No validation logic, no exploration — that belongs elsewhere.
 - Keep extraction and CDC cells compatible with Livy and the notebook UI: no `display()`, no `%run`, no `/lakehouse/default/` mounts; `spark.sql()` instead of `%%sql`. The dedicated `%pip` dependency cell is handled separately by `nor-livy-session`; do not scatter package installation through source-specific cells.

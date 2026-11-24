@@ -34,7 +34,7 @@ Session lifecycle and cell-run outcomes are appended to
 
 | Command | What it does |
 |---|---|
-| `create <lakehouse_name> [--no-environment]` | POST session bound to that lakehouse, optionally attach the Environment from the selected target mapping, wait until `idle` (startup varies by pool and Environment), run the preamble (driver-side pip requirement resolution + workspace-name shim + `import lakehouse_toolbelt`). The preamble resolves `lakehouse-toolbelt>=1.0.7` from the hosted feed, without `--upgrade`; compatible Environment-installed packages satisfy the requirement. `--no-environment` omits the Environment binding. Installation/import failure is reported and fails the command. |
+| `create <lakehouse_name> [--no-environment]` | POST session bound to that lakehouse, optionally attach the Environment from the selected target mapping, wait until `idle` (startup varies by pool and Environment), run the preamble (driver-side pip requirement resolution + workspace-name shim for notebook imports and toolbelt + `import lakehouse_toolbelt`). The preamble resolves `lakehouse-toolbelt>=1.0.7` from the hosted feed, without `--upgrade`; compatible Environment-installed packages satisfy the requirement. `--no-environment` omits the Environment binding. Installation/import failure is reported and fails the command. |
 | `status` | Session state. |
 | `run-cells <notebook-content.py> [N[,M..]\|all] [--keep-going]` | Submit code cells in notebook order as statements (markdown skipped, `%%sql` cells sent as `sql`, dedicated single-line `%pip` cells run via driver-only subprocess pip), print each output, stop at the first error unless `--keep-going`. |
 | `statement "<code>"` or `statement -f file.py` | Ad-hoc statement (inspect a DataFrame, list files, `spark.sql`). |
@@ -77,7 +77,9 @@ then use schema-qualified table names and bounded samples.
   no executor propagation and no automatic Python restart. Keep it before imports; if packages already imported
   need changing, start a fresh Livy session rather than assuming cached modules are refreshed.
 - `display()` is UI-only → use `.show()` / `.limit(20).toPandas()`.
-- `notebookutils.runtime.context["currentWorkspaceName"]` is None in Livy; the preamble patches lakehouse_toolbelt with the selected physical workspace name. Notebooks themselves stay unchanged.
+- `notebookutils.runtime.context["currentWorkspaceName"]` is None in Livy; the preamble supplies the selected
+  physical workspace name to notebook imports and lakehouse_toolbelt while preserving other notebookutils
+  functionality. Notebooks themselves stay unchanged.
 - Use `abfss://` paths via the toolbelt, never `/lakehouse/default/...` mounts.
 - Output is `text/plain`; keep prints compact (`show(20, truncate=False)`).
 

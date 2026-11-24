@@ -132,6 +132,12 @@ class RenderNotebookTests(unittest.TestCase):
                     cells = json.loads(subprocess.check_output(
                         [sys.executable, str(CELLS), str(notebook), "--json"], text=True
                     ))
+                    markdown_lines = []
+                    for cell in cells:
+                        if cell["type"] == "markdown":
+                            markdown_lines.extend(cell["source"].splitlines())
+                    self.assertNotIn("#", markdown_lines)
+                    self.assertIn("# ", markdown_lines)
                     code = [cell["source"] for cell in cells if cell["type"] != "markdown"]
                     install_cells = [source for source in code if source.startswith("%pip ")]
                     self.assertEqual(install_cells, [

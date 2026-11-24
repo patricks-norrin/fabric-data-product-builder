@@ -46,8 +46,8 @@ treat the binding as a deliberate, deployment-managed choice (generated extract 
 
 1. **Title and purpose (markdown).** Name the tier, business concept, owner or intended consumers when known,
    and the tables the notebook publishes.
-2. **Imports and destinations (code).** Import Spark functions and types; define the product name and output
-   table identifiers or paths in one place.
+2. **Imports and workspace (code).** Import Spark functions and types and resolve the current workspace at runtime.
+   Write lakehouse, schema, and table names in full at their use sites.
 3. **Input products (markdown + code).** List every source table and what it contributes, then read it. For each
    source-aligned CDC table, state and implement whether the model uses current rows
   (`dpmeta_is_current = true`) or historical versions. Apply that filter immediately after the read, before
@@ -58,15 +58,15 @@ treat the binding as a deliberate, deployment-managed choice (generated extract 
    rule a named documentation cell followed by a pure DataFrame-in/DataFrame-out function and a separate call.
 6. **Output contract (markdown + code).** Define each table's ordered columns, Spark datatypes, which values
    are always set, column descriptions, table description, grain, primary identifier, and relationship
-   identifiers in one visible place. Align and validate the final DataFrame against that contract before publication.
-7. **Business-rule tests (reserved).** Leave automated rule tests as the next iteration; still run the contract
-   and identifier checks before publication. Keep exploratory displays out of the production flow, and pure rule
-   functions independently callable by future tests.
+   identifiers in one visible place. Check column names and align the final DataFrame before publication.
+7. **Validation tests (reserved).** Leave data validation tests as the next iteration; do not mix exploratory
+   displays into the production flow. Pure rule functions must remain independently callable by future tests.
 8. **Publish (code).** Write only contract-aligned DataFrames with their descriptions. Keep reads and writes
    outside business-rule functions.
 
 Use one responsibility per cell. A markdown cell explains business meaning and decisions; it should not
-narrate obvious PySpark syntax.
+narrate obvious PySpark syntax. In a Fabric `.py` notebook, write blank markdown lines as `# ` (hash followed by a
+space); a bare `#` can be dropped on import and merge paragraphs or tables.
 
 ## Grain and identifiers
 
@@ -78,10 +78,9 @@ narrate obvious PySpark syntax.
   within one source system.
 - `dpmeta_uid` is the table grain's identifier. Derive it deterministically from the complete natural key; do
   not use row numbers, random UUIDs, execution timestamps, or processing order.
-- Validate that every modelled table's `dpmeta_uid` is non-null and unique before a full replacement. For
-  incremental publication, validate the candidate resulting target before committing, or use equivalent
-  transactional enforcement; checking only the incoming batch is insufficient. Source-aligned CDC history is
-  different: its `dpmeta_uid` repeats across versions.
+- Each modelled table's `dpmeta_uid` must be unique; duplicates on a Direct Lake relationship's "one" side
+  cause failures. Source-aligned CDC history is different: its `dpmeta_uid` repeats across versions. Data
+  validation tests are a future iteration; do not claim that uniqueness was verified without evidence.
 - Keep the natural-key columns in the contract so the business meaning of `dpmeta_uid` remains visible and
   traceable. Document every component used to derive it.
 - A transformation or join preserves the declared grain unless a named business rule explicitly documents a
@@ -92,23 +91,23 @@ narrate obvious PySpark syntax.
 Use predictable names that expose role and stage:
 
 ```text
-<entity>_source_df
-<entity>_base_df
-<entity>_with_<business_rule>_df
-<entity>_df
+<entity>_source_dataframe
+<entity>_base_dataframe
+<entity>_with_<business_rule>_dataframe
+<entity>_dataframe
 ```
 
-Avoid generic names such as `df`, `temp_df`, or numbered DataFrames. Before a join, project each input to only
-the required columns and rename ambiguous columns to their contract names.
+Avoid vague or abbreviated names such as `df`, `temp_dataframe`, or numbered DataFrames. Before a join, project
+each input to only the required columns and rename ambiguous columns to their contract names.
 
 Do not alias DataFrames in joins. Give each DataFrame an unambiguous variable name and use its full name in
 qualified column references so provenance remains visible:
 
 ```python
-purchase_invoice_lines_base_df.join(
-    purchase_order_relationships_df,
-    purchase_invoice_lines_base_df.purchase_order_line_source_id
-    == purchase_order_relationships_df.purchase_order_line_source_id,
+purchase_invoice_lines_base_dataframe.join(
+    purchase_order_relationships_dataframe,
+    purchase_invoice_lines_base_dataframe.purchase_order_line_source_identifier
+    == purchase_order_relationships_dataframe.purchase_order_line_source_identifier,
     "left",
 )
 ```
@@ -145,23 +144,42 @@ Implement it as a pure transformation:
 
 ```python
 def add_purchase_order_relationships(
-    purchase_invoice_lines_df,
-    invoice_po_links_df,
-    purchase_order_lines_df,
+    purchase_invoice_lines_dataframe,
+    invoice_purchase_order_links_dataframe,
+    purchase_order_lines_dataframe,
 ):
     return (...)
 
 
-purchase_invoice_lines_with_po_df = add_purchase_order_relationships(
-    purchase_invoice_lines_base_df,
-    invoice_po_links_df,
-    purchase_order_lines_df,
+purchase_invoice_lines_with_purchase_order_dataframe = add_purchase_order_relationships(
+    purchase_invoice_lines_base_dataframe,
+    invoice_purchase_order_links_dataframe,
+    purchase_order_lines_dataframe,
 )
 ```
 
 The function must receive every DataFrame dependency as an argument, return a new DataFrame, and contain no
 `spark.table`, write, `display`, `show`, `collect`, or hidden notebook-global dependency. Use descriptive
 function and stage names. Do not create a function merely to wrap one rename, cast, selection, or obvious join.
+
+For repeated values within each source row, prefer a single projection using `F.inline(F.array(...))` or
+`unpivot` when the shape fits, rather than stacking branches with `functools.reduce`. This is not a substitute
+for unions of independent DataFrames. Avoid intermediate `print(dataframe.count())` calls: each can recompute
+the transformations from the source.
+
+## Names and deployment
+
+- Use full, descriptive words in authored names, code values, labels, markdown, and descriptions. Exceptions are
+  established system names (such as HFM, OAC, and RPD), ISO codes, platform conventions (`dpmeta_*`, `lh_`,
+  `nb_`, `ws_`), PySpark aliases `F` and `T`, and source names or values when reading or quoting them.
+- A published column or code-value rename changes the contract. First identify downstream consumers and any
+  identifiers derived from the renamed value; agree on the migration rather than silently breaking them.
+- Resolve the workspace with `notebookutils.runtime.context["currentWorkspaceName"]`; never hard-code a
+  development workspace. In table references, write lakehouse, schema, and table names in full where used
+  instead of building namespace or table-name variable chains. Quote workspace identifiers when needed.
+- Cross-product reads still go through the domain workspace's `lh_shortcuts`; provision the appropriate
+  shortcuts for each deployment environment. Livy supplies the workspace through `nor-livy-session`, not a
+  notebook-specific fallback.
 
 ## Nulls and deterministic results
 
@@ -185,7 +203,8 @@ function and stage names. Do not create a function merely to wrap one rename, ca
   ingestion timestamp. Name and describe it as an instant so it cannot be confused with a document value.
 - Prefer `timestamp` for technical instants. When a business contract needs a source-local time or timestamp,
   agree on a representation with the business owner and verify its consumer support; do not silently shift,
-  truncate, or discard the value. Direct Lake support for `timestamp_ntz` was not checked in the publication spike.
+  truncate, or discard the value. Avoid `timestamp_ntz`; Direct Lake support was not checked in the publication
+  spike.
 
 ## Output contract and Delta descriptions
 
@@ -195,72 +214,76 @@ following pattern was observed to publish the data, column order, datatypes, col
 description in one Delta write:
 
 ```python
-from pyspark.sql import functions as F
+import notebookutils
 from pyspark.sql import types as T
 
-purchase_invoice_line_contract = T.StructType.fromDDL("""
-    dpmeta_uid STRING COMMENT 'Deterministic purchase invoice line identifier. Always set.',
-    line_amount DECIMAL(18, 2) COMMENT 'Line amount in invoice_currency_code.',
-    invoice_currency_code STRING COMMENT 'ISO 4217 currency code of line_amount.'
-""")
+workspace = notebookutils.runtime.context["currentWorkspaceName"]
 
-purchase_invoice_line_table_description = (
-    "One row per purchase invoice line, identified by dpmeta_uid."
+purchase_invoice_line_contract = (
+    T.StructType()
+    .add("dpmeta_uid", "string", metadata={"comment": "Deterministic purchase invoice line identifier. Always set."})
+    .add("line_amount", "decimal(18,2)", metadata={"comment": "Line amount in invoice_currency_code."})
+    .add("invoice_currency_code", "string", metadata={"comment": "ISO 4217 currency code of line_amount."})
 )
 
-input_columns = purchase_invoice_line_df.columns
-contract_columns = purchase_invoice_line_contract.fieldNames()
-if (
-    len(input_columns) != len(set(input_columns))
-    or len(contract_columns) != len(set(contract_columns))
-    or set(input_columns) != set(contract_columns)
-):
-    raise ValueError("Input and contract must have the same unique column names")
+def publish_table(model_dataframe, contract, table_identifier, table_description):
+    missing_columns = sorted(set(contract.fieldNames()) - set(model_dataframe.columns))
+    unexpected_columns = sorted(set(model_dataframe.columns) - set(contract.fieldNames()))
+    if missing_columns or unexpected_columns:
+        raise ValueError(
+            f"contract mismatch for {table_identifier}: "
+            f"missing={missing_columns} unexpected={unexpected_columns}"
+        )
+    (
+        model_dataframe.to(contract)
+        .writeTo(table_identifier)
+        .using("delta")
+        .tableProperty("comment", table_description)
+        .createOrReplace()
+    )
+    print(f"published {table_identifier}: {spark.table(table_identifier).count()} rows, {len(contract.fields)} columns")
 
-purchase_invoice_line_aligned_df = purchase_invoice_line_df.to(purchase_invoice_line_contract)
-invalid_uid = (
-    purchase_invoice_line_aligned_df.groupBy("dpmeta_uid").count()
-    .where(F.col("dpmeta_uid").isNull() | (F.col("count") > 1))
-    .limit(1)
-    .count()
-)
-if invalid_uid:
-    raise ValueError("dpmeta_uid must be non-null and unique")
-
-(
-    purchase_invoice_line_aligned_df.writeTo(purchase_invoice_line_table)
-    .using("delta")
-    .tableProperty("comment", purchase_invoice_line_table_description)
-    .createOrReplace()
+publish_table(
+    purchase_invoice_line_dataframe,
+    purchase_invoice_line_contract,
+    f"`{workspace.replace('`', '``')}`.lh_purchase_invoice.purchase_invoice.purchase_invoice_line",
+    "One row per purchase invoice line, identified by dpmeta_uid.",
 )
 ```
 
-Define `purchase_invoice_line_table` as the product's fully qualified table identifier. `DataFrame.to` aligns
-column order, compatible datatypes, and metadata, but the spike found that it can drop extra columns or fill
-missing nullable columns with nulls; check names first as shown. Make intentional casts and rounding explicit
-where needed, and surface incompatible conversions, overflow, and other failures. Casting behavior can depend on
-the runtime and settings: verify it on the target rather than assuming every conversion fails on invalid values.
+The helper is useful when publishing several tables; for one table, inline the same steps rather than adding a
+helper just in case. Use Spark type names in `.add`: `string`, `integer`, `long`, `decimal(p,s)`, `boolean`,
+`date`, and `timestamp`; `int` failed while `integer` worked in the Runtime 2.0 spike. Descriptions are plain
+Python strings, not SQL literals. Omit the nullable argument.
+
+`DataFrame.to` aligns column order, compatible datatypes, and metadata, but the spike found that it can drop
+extra columns or fill missing nullable columns with nulls; check names first as shown. Make intentional casts
+and rounding explicit where needed, and surface incompatible conversions, overflow, and other failures. Casting
+behavior can depend on the runtime and settings: verify it on the target rather than assuming every conversion
+fails on invalid values.
 
 Always supply the table comment: the spike found that replacement without it clears the existing description.
 Do not create an empty table or issue per-column comment statements for this full-refresh pattern. The spike also
 found that `saveAsTable` overwrite without `overwriteSchema` can ignore changed comments, `.option("comment")`
 only sets the table description on creation, and `.option("description")` does not set it.
 
-Read Delta catalog metadata back and verify the table and column descriptions after initial publication and
-when the contract changes, not on every run. Report what was actually verified. Confirm the pattern and metadata
-behavior on a different runtime before relying on it; do not silently substitute a write that loses descriptions.
-This replacement pattern is not an incremental publication strategy.
+Verify table and column descriptions as a one-time check outside the notebook after initial publication and
+when the contract changes, never on every run. Report what was actually verified. Confirm the pattern and
+metadata behavior on a different runtime before relying on it; do not silently substitute a write that loses
+descriptions. This replacement pattern is not an incremental publication strategy.
 
 Do not put `NOT NULL` or `nullable=False` in this contract. DataFrame nullability is a query-plan promise, not
-a data check; validate values explicitly when required and state "always set" in the description. In the spike,
-replacement writes dropped Delta NOT NULL constraints, `ALTER ... SET NOT NULL` was rejected, and the SQL
-endpoint showed columns as nullable. Do not treat these observations as guarantees for every runtime.
+a data check; end a description with "Always set." when consumers require a value. In the spike, `DataFrame.to`
+rejected plan-nullable expressions against NOT NULL fields, replacement writes dropped Delta NOT NULL constraints,
+`ALTER ... SET NOT NULL` was rejected, and the SQL endpoint showed columns as nullable. Do not treat these
+observations as guarantees for every runtime.
 
 Business-product Delta table and column descriptions are the source for semantic models, normally read through
 Direct Lake. A model may exceptionally own tables and descriptions of its own. Use the SQL endpoint for
-analysts' ad-hoc queries, not as the semantic model's default data path.
+analysts' ad-hoc queries, not as the semantic model's default data path or source of Delta descriptions; the
+spike found that the endpoint did not expose those descriptions.
 
-Prefer consumer-friendly `string`, `int`/`bigint`, `decimal(p,s)`, `boolean`, and `date`, with `timestamp` for
+Prefer consumer-friendly `string`, `integer`/`long`, `decimal(p,s)`, `boolean`, and `date`, with `timestamp` for
 technical instants. Avoid complex and binary types unless a consumer requirement and compatibility are established.
 
 ## Numeric and currency datatypes
@@ -300,12 +323,11 @@ technical instants. Avoid complex and binary types unless a consumer requirement
 
 ## Publication rules
 
-- Complete all transformations and contract checks before the first write.
+- Complete transformations and check the contract column names before writing each table.
 - Use deterministic full replacement only when full-refresh semantics are intended and documented; otherwise
-  define the product's incremental publication strategy explicitly, including target-wide identifier validation,
-  concurrency safety, and preserving descriptions. Do not use `createOrReplace` as a substitute for incremental
-  semantics.
+  define the product's incremental publication strategy explicitly, including concurrency safety and preserving
+  descriptions. Do not use `createOrReplace` as a substitute for incremental semantics.
 - Keep table writes together at the end of the notebook. Reads stay near the beginning, transformations stay
   in the middle, and a business-rule function never reads or publishes data.
-- Report the published table identifier, row count, and contract columns. Report catalog description verification
-  when performed; do not claim it was verified on runs where metadata was not read back.
+- Report the published table identifier, row count, and number of contract columns. Report catalog description
+  verification when performed; do not claim it was verified on runs where metadata was not read back.

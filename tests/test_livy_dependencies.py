@@ -59,9 +59,12 @@ class LivyDependencyTests(unittest.TestCase):
         self.assertEqual(sql["source"], "SELECT 1")
         self.assertNotIn("livy_source", sql)
 
-    def run_preamble(self, installed_version="1.0.7", pip_error=None):
+    def run_preamble(self, installed_version="1.0.7", pip_error=None, workspace_name="physical_workspace"):
         notebookutils = types.ModuleType("notebookutils")
-        notebookutils.runtime = types.SimpleNamespace(context={"currentWorkspaceName": "physical_workspace"})
+        notebookutils.runtime = types.SimpleNamespace(
+            context={"currentWorkspaceName": workspace_name, "currentWorkspaceId": "workspace-id"},
+            extra_runtime_property="preserved",
+        )
         notebookutils.fs = mock.Mock()
         toolbelt = types.ModuleType("lakehouse_toolbelt")
         modules = {"notebookutils": notebookutils, "lakehouse_toolbelt": toolbelt}
@@ -82,8 +85,16 @@ class LivyDependencyTests(unittest.TestCase):
                         runpy.run_path(str(LIVY / "preamble" / "livy_preamble.py"),
                                        init_globals={"spark": types.SimpleNamespace(version="3.5")})
                 else:
-                    runpy.run_path(str(LIVY / "preamble" / "livy_preamble.py"),
-                                   init_globals={"spark": types.SimpleNamespace(version="3.5")})
+                    preamble = (LIVY / "preamble" / "livy_preamble.py").read_text(encoding="utf-8")
+                    preamble = preamble.replace('"__WORKSPACE_NAME__"', json.dumps("selected_workspace"))
+                    preamble_globals = {"spark": types.SimpleNamespace(version="3.5")}
+                    exec(compile(preamble, "<preamble>", "exec"), preamble_globals)
+                    modules["preexisting_notebook_global"] = preamble_globals["notebookutils"]
+                    cell = {}
+                    exec("import notebookutils\nworkspace = notebookutils.runtime.context['currentWorkspaceName']",
+                         cell)
+                    modules["notebook_import"] = cell["notebookutils"]
+                    modules["notebook_workspace"] = cell["workspace"]
         report_line = next(line for line in output.getvalue().splitlines() if line.startswith("PREAMBLE "))
         return run, json.loads(report_line.removeprefix("PREAMBLE ")), modules
 
@@ -97,6 +108,7 @@ class LivyDependencyTests(unittest.TestCase):
                 ], check=True)
                 self.assertEqual(report["lakehouse_toolbelt"], version)
                 self.assertTrue(report["onelake_access"])
+                self.assertEqual(modules["notebook_workspace"], "physical_workspace")
                 self.assertEqual(
                     modules["lakehouse_toolbelt._data_product_class"].notebookutils.runtime.context[
                         "currentWorkspaceName"
@@ -112,6 +124,19 @@ class LivyDependencyTests(unittest.TestCase):
         self.assertIn("IMPORT FAILED", report["lakehouse_toolbelt"])
         run.assert_called_once()
         modules["notebookutils"].fs.cp.assert_not_called()
+
+    def test_notebook_and_toolbelt_share_selected_workspace_without_losing_notebookutils(self):
+        _, report, modules = self.run_preamble(workspace_name=None)
+
+        self.assertEqual(report["workspace_name"], "selected_workspace")
+        self.assertEqual(modules["notebook_workspace"], "selected_workspace")
+        shim = modules["notebook_import"]
+        self.assertIs(modules["preexisting_notebook_global"], shim)
+        self.assertIs(modules["lakehouse_toolbelt._data_product_class"].notebookutils, shim)
+        self.assertEqual(shim.runtime.context["currentWorkspaceId"], "workspace-id")
+        self.assertEqual(shim.runtime.extra_runtime_property, "preserved")
+        self.assertIs(shim.fs, modules["notebookutils"].fs)
+        self.assertIsNone(modules["notebookutils"].runtime.context["currentWorkspaceName"])
 
 
 if __name__ == "__main__":

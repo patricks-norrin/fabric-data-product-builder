@@ -1,3 +1,5 @@
+import contextlib
+import io
 import pathlib
 import re
 import sys
@@ -58,69 +60,69 @@ class ModellingSkillTests(unittest.TestCase):
 
 
 class ModellingPublicationExampleTests(unittest.TestCase):
-    def run_example(self, input_columns, contract_columns, invalid_uid=0):
+    def run_example(self, input_columns, contract_columns):
         examples = re.findall(
             r"```python\n(.*?)\n```",
             MODELLING_SKILL.read_text(encoding="utf-8"),
             re.DOTALL,
         )
-        example = next(code for code in examples if ".StructType.fromDDL(" in code)
+        example = next(code for code in examples if ".writeTo(" in code)
 
         spark_sql = types.ModuleType("pyspark.sql")
-        spark_sql.functions = MagicMock()
-        spark_sql.functions.col.return_value.__gt__.return_value = MagicMock()
         spark_sql.types = MagicMock()
-        spark_sql.types.StructType.fromDDL.return_value.fieldNames.return_value = contract_columns
+        contract = spark_sql.types.StructType.return_value
+        contract.add.return_value = contract
+        contract.fieldNames.return_value = contract_columns
+        contract.fields = [object() for _ in contract_columns]
         pyspark = types.ModuleType("pyspark")
         pyspark.sql = spark_sql
+        notebookutils = types.ModuleType("notebookutils")
+        notebookutils.runtime = types.SimpleNamespace(context={"currentWorkspaceName": "physical workspace"})
 
         input_df = MagicMock()
         input_df.columns = input_columns
-        aligned_df = input_df.to.return_value
-        aligned_df.groupBy.return_value.count.return_value.where.return_value.limit.return_value.count.return_value = (
-            invalid_uid
-        )
+        spark = MagicMock()
+        spark.table.return_value.count.return_value = 10
         namespace = {
-            "purchase_invoice_line_df": input_df,
-            "purchase_invoice_line_table": "lakehouse.product.invoice_line",
+            "purchase_invoice_line_dataframe": input_df,
+            "spark": spark,
         }
-        with patch.dict(sys.modules, {"pyspark": pyspark, "pyspark.sql": spark_sql}):
+        with patch.dict(sys.modules, {"pyspark": pyspark, "pyspark.sql": spark_sql, "notebookutils": notebookutils}):
             try:
-                exec(compile(example, str(MODELLING_SKILL), "exec"), namespace)
+                with contextlib.redirect_stdout(io.StringIO()):
+                    exec(compile(example, str(MODELLING_SKILL), "exec"), namespace)
             except ValueError as error:
-                return input_df, error
-        return input_df, None
+                return input_df, spark, error
+        return input_df, spark, None
 
-    def test_rejects_missing_extra_and_duplicate_columns_before_alignment(self):
+    def test_rejects_missing_and_extra_columns_before_alignment(self):
         for inputs, contract in (
             (["dpmeta_uid"], ["dpmeta_uid", "amount"]),
             (["dpmeta_uid", "extra"], ["dpmeta_uid"]),
-            (["dpmeta_uid", "dpmeta_uid"], ["dpmeta_uid"]),
-            (["dpmeta_uid"], ["dpmeta_uid", "dpmeta_uid"]),
         ):
             with self.subTest(inputs=inputs, contract=contract):
-                input_df, error = self.run_example(inputs, contract)
+                input_df, spark, error = self.run_example(inputs, contract)
                 self.assertIsInstance(error, ValueError)
+                self.assertIn("missing=", str(error))
+                self.assertIn("unexpected=", str(error))
                 input_df.to.assert_not_called()
                 input_df.to.return_value.writeTo.assert_not_called()
-
-    def test_invalid_identifier_stops_write(self):
-        input_df, error = self.run_example(["dpmeta_uid"], ["dpmeta_uid"], invalid_uid=1)
-
-        self.assertIsInstance(error, ValueError)
-        input_df.to.return_value.writeTo.assert_not_called()
+                spark.table.assert_not_called()
 
     def test_valid_contract_writes_once_with_table_comment(self):
-        input_df, error = self.run_example(["amount", "dpmeta_uid"], ["dpmeta_uid", "amount"])
+        input_df, spark, error = self.run_example(["amount", "dpmeta_uid"], ["dpmeta_uid", "amount"])
 
         self.assertIsNone(error)
         writer = input_df.to.return_value.writeTo.return_value
-        input_df.to.return_value.writeTo.assert_called_once_with("lakehouse.product.invoice_line")
+        table = "`physical workspace`.lh_purchase_invoice.purchase_invoice.purchase_invoice_line"
+        input_df.to.return_value.writeTo.assert_called_once_with(table)
         writer.using.assert_called_once_with("delta")
         writer.using.return_value.tableProperty.assert_called_once_with(
             "comment", "One row per purchase invoice line, identified by dpmeta_uid."
         )
         writer.using.return_value.tableProperty.return_value.createOrReplace.assert_called_once_with()
+        input_df.to.return_value.groupBy.assert_not_called()
+        spark.table.assert_called_once_with(table)
 
 
 if __name__ == "__main__":

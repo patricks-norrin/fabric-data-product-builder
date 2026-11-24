@@ -1,21 +1,27 @@
 # Livy preamble — executed once per session by livy_session.py (never part of a notebook).
-# 1) shim: lakehouse_toolbelt reads notebookutils.runtime.context["currentWorkspaceName"], which is None in Livy.
-import json, os
+# 1) shim: currentWorkspaceName is None in Livy for notebooks and lakehouse_toolbelt.
+import json, os, sys, types
 import notebookutils
 
 WORKSPACE_NAME = "__WORKSPACE_NAME__"
-_ctx = dict(notebookutils.runtime.context)
+_original_notebookutils = notebookutils
+_ctx = dict(_original_notebookutils.runtime.context)
 _ctx["currentWorkspaceName"] = _ctx.get("currentWorkspaceName") or WORKSPACE_NAME
 
 class _Runtime:
     context = _ctx
 
-class _NotebookutilsShim:
-    runtime = _Runtime
     def __getattr__(self, name):
-        return getattr(notebookutils, name)
+        return getattr(_original_notebookutils.runtime, name)
 
-_shim = _NotebookutilsShim()
+class _NotebookutilsShim(types.ModuleType):
+    def __getattr__(self, name):
+        return getattr(_original_notebookutils, name)
+
+_shim = _NotebookutilsShim("notebookutils")
+_shim.runtime = _Runtime()
+sys.modules["notebookutils"] = _shim
+notebookutils = _shim
 _report = {"workspace_name": _ctx["currentWorkspaceName"], "workspace_id": _ctx.get("currentWorkspaceId"),
            "spark": spark.version, "AZURE_SERVICE": "AZURE_SERVICE" in os.environ}
 try:  # assertion-style: does this session have a delegated OneLake identity?

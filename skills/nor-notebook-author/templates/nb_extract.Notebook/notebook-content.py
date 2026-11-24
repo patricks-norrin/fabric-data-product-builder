@@ -11,7 +11,7 @@
 # MARKDOWN ********************
 
 # # nb_extract_{{DATA_PRODUCT_IDENTIFIER}} — land source data in raw/
-#
+# 
 # Single responsibility: write source data **unchanged** to
 # `Files/{{DATA_PRODUCT_IDENTIFIER}}/<dataset>/raw/<batch_id>/`. Source-specific cells implement extraction;
 # `nb_cdc_{{DATA_PRODUCT_IDENTIFIER}}` creates the change history.
@@ -20,7 +20,7 @@
 # MARKDOWN ********************
 
 # ## Install the runtime dependency
-#
+# 
 # Install from the hosted wheel feed; a compatible Environment-installed package also satisfies this requirement.
 # Keep this cell before parameters and imports because Fabric restarts Python after installation.
 
