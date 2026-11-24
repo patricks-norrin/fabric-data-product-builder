@@ -5,6 +5,14 @@ All notable changes to `norrin-fabric-data-product-toolpack` are documented here
 The history through version 1.0.16 was reconstructed from plugin manifest changes and the main Git history
 because earlier releases were not tagged and the project did not yet have a changelog.
 
+## [1.0.19] - 2026-11-23
+
+### Changed
+
+- Modelling guidance uses the Fabric Runtime 2.0 full-replacement Delta write pattern to publish data and
+  descriptions together, validates contract columns and modelled identifiers, and verifies metadata when the
+  contract changes. It clarifies nullability, Direct Lake relationship types, and consumer datatype guidance.
+
 ## [1.0.18] - 2026-11-17
 
 ### Changed
