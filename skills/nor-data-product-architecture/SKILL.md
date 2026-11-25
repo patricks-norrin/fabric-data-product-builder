@@ -25,23 +25,30 @@ file's own directory, inside the installed toolpack — not to the consuming pro
 ## 2. Source-aligned product contents
 raw files (original format, per batch) + change-history Delta tables + config + `nb_extract_<id>` + `nb_cdc_<id>` + `pl_<id>` (extract → CDC), all inside workspace folder `<id>`.
 
-## 3. Raw is insurance
+## 3. Cross-workspace data access
+- Use the consumer workspace's `lh_shortcuts` for data owned by a different workspace. Create schema-level
+  shortcuts named exactly after the upstream schema so its schema and table names stay aligned with the source.
+- Never create shortcuts to lakehouses in the same workspace; read co-located data directly from its lakehouse.
+- Use upstream change-history tables for standard tabular consumption, not raw tables. Keep `lh_shortcuts`
+  shortcuts-only; do not chain shortcuts or create circular references.
+
+## 4. Raw is insurance
 Land exactly what the source returned: `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/<logical_identifier>_<batch_id>.<extension>`. The stable logical identifier comes first, and the filename's `<batch_id>` must match its parent batch folder so the file remains attributable outside that folder. Keep API payload format (JSON/NDJSON); export relational tables as Parquet snapshots or incremental slices, never CSV. Never rename columns, cast types, or filter before landing. Reprocessing history = re-reading raw.
 
-## 4. CDC is the default
+## 5. CDC is the default
 Every tabular dataset goes through `lakehouse_toolbelt` SCD2 (`Tables/<id>/<dataset>`). Exceptions are last resort: no possible unique identifier, mandatory sub-second streaming pass-through, or truly static generated data. Document the exception and its rationale in the relevant extraction or CDC notebook markdown cell, never in the data-product config. Non-tabular artifacts, including binary files, skip CDC but are still stored unchanged under `Files/<id>/<dataset>/raw/<YYYYMMDDTHHMMSSZ>/`.
 
-## 5. Keys and versions
+## 6. Keys and versions
 - Choose `unique_identifier_columns` as the smallest natural key that is unique **within one batch** (verify against real data before committing).
 - Set `object_version_timestamp_column` when the source has a reliable business timestamp; otherwise leave empty (toolbelt uses load time).
 - Timestamp strings may be converted after raw read through `timestamp_columns_to_convert` and the standard `lakehouse_toolbelt.convert_timestamps(...)` step, before CDC metadata is added. Volatile columns that must not trigger a new version → `exclude_columns_from_payload_checksum`.
 
-## 6. Minimal shared config
+## 7. Minimal shared config
 The data-product JSON is a small iterable handoff for extraction implementations (notebook or pipeline) and CDC. Standard datasets need only their name, natural key, and optional version/timestamp metadata. Keep credentials, queries, request values, pagination, reader options, and operational extraction behavior beside the extracting code, where the decision can be documented and replaced later by a catalog.
 
 `lakehouse_toolbelt` accepts source metadata such as `source_schema`, `source_table`, `filter_string`, `base_url`, `relative_url_template`, and `endpoint_query_parameters`. These remain compatible when a consuming implementation needs them; they are not a prescribed standard or a connector framework. Durable endpoint parameters may distinguish datasets or schemas returned by one endpoint. Operational request values and extraction windows belong beside the extraction code where their rationale can be documented.
 
-## 7. Incremental by convention
+## 8. Incremental by convention
 Source-side delta extraction is the default, not an optional optimization. First inspect the source for modified/created timestamp filters, increasing keys or versions, cursors, change feeds, or equivalent query predicates. Use one implementation in every environment:
 1. Build the base request for the user's requested scope.
 2. Read `get_delta_change_history_dpmeta_loaded_to_dataplatform()`.
@@ -52,7 +59,7 @@ Do not add `first_run`, `initial_load`, `load_mode`, or equivalent mode paramete
 
 Fall back to full snapshots only when (1) the user explicitly asks for snapshots, (2) the user explicitly requests a closed interval, or (3) source documentation and inspection establish that no reliable incremental filter exists. Document which exception applies beside the extraction code. A lower bound alone remains open-ended and continues incrementally; only an explicit upper boundary makes the requested interval closed. Never invent a boundary the user did not provide.
 
-## 8. Orchestration
+## 9. Orchestration
 Pipelines own orchestration and scheduling. Author them with `nor-pipeline-author`.
 1. **More than one notebook or activity = one pipeline** named `pl_<id>` in the product folder. A source-aligned product always has one: `nb_extract_<id>` → `nb_cdc_<id>`.
 2. **Schedule pipelines, never notebooks.** A single-notebook product gets a `pl_<id>` once it needs a schedule. Do not chain product notebooks with `notebookutils.notebook.run()`.

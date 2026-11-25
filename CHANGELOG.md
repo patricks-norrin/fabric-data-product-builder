@@ -5,6 +5,13 @@ All notable changes to `norrin-fabric-data-product-toolpack` are documented here
 The history through version 1.0.16 was reconstructed from plugin manifest changes and the main Git history
 because earlier releases were not tagged and the project did not yet have a changelog.
 
+## [1.0.21] - 2026-11-25
+
+### Changed
+
+- Clarified that `lh_shortcuts` is for cross-workspace schema shortcuts only, preserves source schema and table
+  names, and is not used for data in the same workspace.
+
 ## [1.0.20] - 2026-11-24
 
 ### Changed

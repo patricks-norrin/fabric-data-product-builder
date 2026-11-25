@@ -237,7 +237,7 @@ Files/<data_product_identifier>/<dataset_name>/
 **Naming convention**: `ws_<domain>_<env>` (e.g., `ws_finance_dev`, `ws_sales_prod`)
 
 **Contains**:
-- Shortcut lakehouse: `lh_shortcuts` (contains ONLY shortcuts to source products)
+- Shortcut lakehouse: `lh_shortcuts` (contains ONLY schema-level shortcuts to upstream products in other workspaces)
 - Business product lakehouses: `lh_<business_product_name>`
 - Modeling notebooks: `nb_<business_product_name>`
 
@@ -267,8 +267,7 @@ ws_extract_dev (IT-managed, extraction-as-a-service - development)
 
 ws_finance_dev (business-domain - development)
 ├── lh_shortcuts                    ← shortcuts-only lakehouse
-│   └── Shortcuts → ws_extract_dev/lh_exchange_rates_api
-│                   ws_extract_dev/lh_oracle_ebs_finland
+│   └── Schema shortcuts → source product schemas in ws_extract_dev
 ├── lh_currency_exchange_rates      ← business data product
 │   └── Tables/currency_exchange_rates
 ├── nb_currency_exchange_rates
@@ -329,20 +328,28 @@ ws_finance_dev (business-domain - development)
 ## OneLake Shortcuts Pattern
 
 ### Convention
-- Create a dedicated **`lh_shortcuts`** lakehouse in each business domain workspace
+- Create a dedicated **`lh_shortcuts`** lakehouse in each business-domain consumer workspace that reads data
+  from another workspace
 - This lakehouse contains **ONLY shortcuts**, no native tables
-- Points to source-aligned product lakehouses in extraction workspace
-- Makes it clear what's external data vs. internally managed
+- Create schema-level shortcuts to upstream product schemas in other workspaces, named exactly after each
+  source schema. This mirrors the source schema and table names, keeping the shortcut namespace aligned with
+  its source.
+- Never create a shortcut to a lakehouse in the same workspace. Read co-located data directly from its source
+  lakehouse; in the single-workspace pattern, omit `lh_shortcuts`.
+- This makes external data distinct from internally managed data and centralizes cross-workspace dependencies.
 
 ### Shortcut Setup
-1. In business workspace, create `lh_shortcuts` lakehouse
-2. Create OneLake shortcuts pointing to each needed source product table:
-   - `exchange_rates_raw` → shortcut from `ws_extract_dev/lh_exchange_rates_api/Tables/exchange_rates_raw`
-   - `currencies_raw` → shortcut from `ws_extract_dev/lh_exchange_rates_api/Tables/currencies_raw`
-   - etc.
-3. Business notebooks read from `lh_shortcuts` via cross-lakehouse reference
+1. In the consumer workspace, create an `lh_shortcuts` lakehouse.
+2. For each upstream product in another workspace, create a schema-level shortcut from the source lakehouse's
+   `Tables/<data_product_identifier>` schema into `lh_shortcuts`. For example:
+   `ws_extract_dev/lh_oracle_ebs_finland/Tables/oracle_ebs_finland` → schema shortcut named
+   `oracle_ebs_finland` in `ws_finance_dev/lh_shortcuts`.
+3. Read the mirrored source tables from `lh_shortcuts`. For standard tabular consumption, use CDC
+   change-history tables rather than optional raw tables. Raw-only exceptions follow their documented
+   exception.
 
 **Cross-environment shortcuts**: In production, shortcuts point to `ws_extract_prod` instead of `ws_extract_dev`.
+Recreate schema shortcuts in each consumer environment; do not promote shortcuts between environments.
 
 ### Benefits
 - Clear separation between external (shortcut) and internal (native) data

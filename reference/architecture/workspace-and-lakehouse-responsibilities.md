@@ -2,8 +2,9 @@
 
 `ws_extract` is *extraction as a service*: IT lands every source system as a source-aligned data product
 (raw + change history) and grants access per product lakehouse. Business-domain workspaces consume
-source-aligned products via shortcuts and build consumer-aligned data products (Foundational, Business,
-Analytical — see `data-product-architecture.md` for the full definitions and ownership/access model).
+source-aligned products from other workspaces via shortcuts and build consumer-aligned data products
+(Foundational, Business, Analytical — see `data-product-architecture.md` for the full definitions and
+ownership/access model).
 
 ## Where Each Item Lives
 
@@ -22,8 +23,9 @@ product, and stay at the **workspace root**, never inside a product folder:
   `reference/lakehouse_toolbelt/docs/environment-prerequisites-and-conventions.md`). Its scope today is
   exactly `Files/configuration/data_product/*` — one subfolder per data product's config plus
   `project_configuration/project_configuration.json`. Nothing else is defined to live there.
-- **`lh_shortcuts`** — a **business-domain-only** container (see below); an extraction workspace does not need
-  one, since it produces source-aligned products rather than consuming them.
+- **`lh_shortcuts`** — a consumer-side, business-domain container for schema-level shortcuts to data in other
+  workspaces. Never create a shortcut to a lakehouse in the same workspace; read that lakehouse directly.
+  An extraction workspace does not need one when it only produces source-aligned products.
 
 ## Workspace Design Patterns
 
@@ -100,33 +102,40 @@ Multiple business domains?
 
 ## OneLake Shortcuts
 
+Use `lh_shortcuts` only to bring data into a workspace from a different workspace. Create a schema-level
+shortcut for each upstream product schema, named exactly after the source schema, so its schema and table
+names stay aligned as they change. In a single-workspace setup, do not create `lh_shortcuts` to access
+co-located data; read the source lakehouse directly.
+
 ### When to Use
 
-- ✅ Business domain lakehouses referencing source-aligned products
-- ✅ Read-only consumption of foundational datasets
-- ✅ Cross-workspace data access without duplication
-- ❌ Don't shortcut to `raw/` — use `change_history/` instead
+- ✅ A business-domain workspace consuming source-aligned or other upstream data from another workspace
+- ✅ Read-only cross-workspace consumption without duplicating the source data
+- ❌ Do not create same-workspace shortcuts; read the source lakehouse directly
+- ❌ Do not use raw data for normal tabular modeling; consume the source product's change-history tables
 - ❌ No circular shortcuts or shortcut chaining
 
 ### Recommended Pattern
 
-Business lakehouse shortcuts to source product's `change_history/` folder:
+Create a schema-level shortcut in the consumer workspace's `lh_shortcuts` to the upstream product schema,
+using the same schema name. The shortcut mirrors the source table names; consume the change-history tables
+for standard tabular data:
 
 ```
 ws_finance_dev/lh_shortcuts/
-├── exchange_rates → ws_extract_dev/lh_exchange_rates_api/.../change_history/
-├── invoices → ws_extract_dev/lh_oracle_ebs_finland/.../change_history/
-└── customers → ws_extract_dev/lh_salesforce/.../change_history/
+└── oracle_ebs_finland → schema shortcut to ws_extract_dev/lh_oracle_ebs_finland/Tables/oracle_ebs_finland/
+    ├── invoice_headers
+    └── invoice_lines
 ```
 
 ### Cross-Environment Shortcuts
 
 ```
 # Dev shortcuts point to dev sources
-ws_finance_dev/lh_shortcuts/invoices → ws_extract_dev/lh_oracle/.../change_history/
+ws_finance_dev/lh_shortcuts/oracle_ebs_finland → ws_extract_dev/lh_oracle_ebs_finland/Tables/oracle_ebs_finland/
 
 # Prod shortcuts point to prod sources
-ws_finance_prod/lh_shortcuts/invoices → ws_extract_prod/lh_oracle/.../change_history/
+ws_finance_prod/lh_shortcuts/oracle_ebs_finland → ws_extract_prod/lh_oracle_ebs_finland/Tables/oracle_ebs_finland/
 ```
 
 Promote code (notebooks), not shortcuts. Recreate shortcuts per environment.

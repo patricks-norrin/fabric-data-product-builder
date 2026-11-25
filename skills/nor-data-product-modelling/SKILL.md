@@ -36,7 +36,9 @@ choose which findings to include or exclude, for example: "include 1 and 3; excl
   `exchange_rate`. A Business product combines Foundational products to answer a business need.
 - Put the modelling notebook in the product folder and name it `nb_model_<data_product_identifier>`.
 - Publish owned tables under `Tables/<data_product_identifier>/<table_name>` so the product schema is explicit.
-- Read other products through the domain workspace's `lh_shortcuts`; never write into an upstream product.
+- Read products from other workspaces through the domain workspace's schema-level `lh_shortcuts`; read
+  co-located products directly from their lakehouse. Never create same-workspace shortcuts or write into an
+  upstream product.
 
 ## Notebook structure
 
@@ -177,9 +179,9 @@ the transformations from the source.
 - Resolve the workspace with `notebookutils.runtime.context["currentWorkspaceName"]`; never hard-code a
   development workspace. In table references, write lakehouse, schema, and table names in full where used
   instead of building namespace or table-name variable chains. Quote workspace identifiers when needed.
-- Cross-product reads still go through the domain workspace's `lh_shortcuts`; provision the appropriate
-  shortcuts for each deployment environment. Livy supplies the workspace through `nor-livy-session`, not a
-  notebook-specific fallback.
+- Cross-workspace reads still go through the domain workspace's `lh_shortcuts`; provision the appropriate
+  schema shortcuts for each deployment environment. Read same-workspace products directly. Livy supplies the
+  workspace through `nor-livy-session`, not a notebook-specific fallback.
 
 ## Nulls and deterministic results
 
@@ -317,9 +319,9 @@ technical instants. Avoid complex and binary types unless a consumer requirement
 - For a genuine many-to-many relationship, publish an explicitly named bridge table such as
   `<left_concept>_<right_concept>_relationship`, containing the two target identifiers and relationship
   attributes only.
-- Cross-product reads use `lh_shortcuts` and clearly named DataFrames with full column references. Do not use
-  DataFrame aliases. Avoid workspace IDs, item IDs, ABFSS paths, and duplicated source-system names in the
-  business contract.
+- Cross-workspace reads use `lh_shortcuts` and clearly named DataFrames with full column references. Do not use
+  DataFrame aliases. Read same-workspace products directly. Avoid workspace IDs, item IDs, ABFSS paths, and
+  duplicated source-system names in the business contract.
 
 ## Publication rules
 
